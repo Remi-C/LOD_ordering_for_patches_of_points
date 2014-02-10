@@ -156,3 +156,37 @@
 
 
 
+DROP FUNCTION IF EXISTS public.rc_ExplodeN_numbered( a_patch PCPATCH , n bigint);
+		CREATE OR REPLACE FUNCTION  public.rc_ExplodeN_numbered( a_patch PCPATCH , n bigint)
+		RETURNS table(num bigint , point pcpoint ) AS
+		$BODY$
+		--this function is a wrapper around pc_explode to limit the number of points it returns	
+		DECLARE
+		BEGIN
+			RETURN QUERY 
+				SELECT generate_series(1, n), PC_Explode(a_patch)
+				LIMIT n;
+		return;
+		END;
+		$BODY$
+		LANGUAGE plpgsql STRICT VOLATILE;
+
+
+SELECT public.rc_ExplodeN_numbered(patch, 10)
+	FROM acquisition_tmob_012013.riegl_pcpatch_space
+	WHERE gid=120;
+
+
+	SELECT public.rc_ExplodeN_numbered(patch, 10)
+	FROM acquisition_tmob_012013.riegl_pcpatch_space
+	WHERE gid=120;
+
+	WITH patch AS (
+		SELECT generate_series(1, PC_NumPoints(patch),1), public.pc_explode(patch)
+		FROM acquisition_tmob_012013.riegl_pcpatch_space
+		WHERE gid=120
+	)
+
+	SELECT public.pc_explode(patch)
+		FROM acquisition_tmob_012013.riegl_pcpatch_space
+		WHERE gid=120

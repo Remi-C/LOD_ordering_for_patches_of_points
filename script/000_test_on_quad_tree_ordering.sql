@@ -2,7 +2,7 @@
 --Copyright Remi-C  22/10/2013
 --
 --
---This script expects a postgres >= 9.3, Postgis >= 2.0.2, postgis topology enabled
+--This script expects a postgres >= 9.3, Postgis >= 2.0.2
 --
 --
 --------------------------------------------
@@ -11,7 +11,7 @@
 
 ----
 --better functional organisation
--- how odes it work :
+-- how does it work :
 --input : table with uid::int, x::numeric, y::numeric  , parameters (tree depth86)
 --output : a "table" with uid int and order int, where uid is the same as input uid, and order are non duplicates int positive ordeing the data following the desiderated quad tree order
 ----
@@ -132,7 +132,9 @@
 		CREATE INDEX ON temp_points_in_patch_ordered USING GIST(point);
 		VACUUM ANALYZE temp_points_in_patch_ordered;
 
-		
+
+
+--///////////////////////// support functions
 
 
 	DROP FUNCTION IF EXISTS public.rc_ExplodeN( a_patch PCPATCH , n bigint);
@@ -155,4 +157,111 @@
 	WHERE gid=120;
 
 
+
+DROP FUNCTION IF EXISTS public.rc_ExplodeN_numbered( a_patch PCPATCH , n bigint);
+		CREATE OR REPLACE FUNCTION  public.rc_ExplodeN_numbered( a_patch PCPATCH , n bigint)
+		RETURNS table(num bigint , point pcpoint ) AS
+		$BODY$
+		--this function is a wrapper around pc_explode to limit the number of points it returns	
+		DECLARE
+		BEGIN
+			RETURN QUERY 
+				SELECT generate_series(1, n), PC_Explode(a_patch)
+				LIMIT n;
+		return;
+		END;
+		$BODY$
+		LANGUAGE plpgsql STRICT VOLATILE;
+
+
+SELECT public.rc_ExplodeN_numbered(patch, 10)
+	FROM acquisition_tmob_012013.riegl_pcpatch_space
+	WHERE gid=120;
+
+
+
+--////////////////////////////////////////////////
+--chained operations from start
+
+--create function explodeN and explodeN_numbered
+
+-- create function public.rc_OrderPatchByQuadTree and required dependencies
+
+--adding the column to data table :
+	ALTER TABLE acquisition_tmob_012013.riegl_pcpatch_space ADD COLUMN points_per_level int[];
+	CREATE INDEX ON acquisition_tmob_012013.riegl_pcpatch_space (points_per_level);
+	
+--what kind of patches do we want to convert?
+	SELECT sum(pc_NumPoints(patch))
+	FROM acquisition_tmob_012013.riegl_pcpatch_space
+	WHERE PC_NumPoints(patch)>85
+	AND gid > 360000 AND gid < 36000
+
+	
+ set client_min_messages to warning;
+--compute ordering for a couple of patches
+UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET (patch, points_per_level)  
+		= (  result.o_patch, result.result_per_level)
+		FROM public.rc_OrderPatchByQuadTree( patch , 7) AS result
+		WHERE PC_NumPoints(patch)>85
+		AND gid >= 360000 AND gid < 365000
+
+
+-- computing done in several transaction to limit memory consumption
+
+DECLARE @I; -- Variable names begin with a @
+SET @I = 0; -- @I is an integer
+WHILE @I < 360000
+BEGIN
+	UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET (patch, points_per_level)  
+		= (  result.o_patch, result.result_per_level)
+		FROM public.rc_OrderPatchByQuadTree( patch , 7) AS result
+		WHERE PC_NumPoints(patch)>85
+		AND gid >= @I AND gid < (@I + 1000);
+   SET @I = @I + 1000;
+END
+
+
+--exploding the patches with LOD into points to a new table
+
+		DROP TABLE IF EXISTS temp_points_in_patch_ordered_numbered;
+	CREATE TABLE temp_points_in_patch_ordered_numbered AS 
+	SELECT  row_number() over() as qgis_id , points_per_level, qgis_id AS ord, gid, point
+	FROM (
+		SELECT (pointt).num as qgis_id,gid, points_per_level, (pointt).point::geometry
+		FROM acquisition_tmob_012013.riegl_pcpatch_space ,  rc_ExplodeN_numbered( patch, (SELECT sum(t) FROM unnest(points_per_level[1:5]) AS t)) as pointt
+		WHERE PC_NumPoints(patch)>85
+		AND gid >= 360000 AND gid < 380000
+		AND points_per_level IS NOT NULL
+		--LIMIT 100 
+		) as foo
+		--LIMIT 300000;
+		CREATE INDEX ON temp_points_in_patch_ordered_numbered USING GIST(point);
+		VACUUM ANALYZE temp_points_in_patch_ordered_numbered;
+
+--exporting data for external visualisation
+
+
+COPY 
+	( SELECT ST_X(point) AS X, ST_Y(point) AS Y,ST_Z(point) AS Z,ord, gid
+	FROM temp_points_in_patch_ordered_numbered
+	)
+TO '/media/sf_E_RemiCura/DATA/tmp_pointcloud_lod.csv'-- '/tmp/temp_pointcloud_lod.csv'
+WITH csv header;
+
+
+COPY 
+	( 
+	SELECT ST_X(point) AS X, ST_Y(point) AS Y,ST_Z(point) AS Z, gid
+	FROM (
+		SELECT PC_Explode(patch )::geometry As  point, gid
+		FROM acquisition_tmob_012013.riegl_pcpatch_space 
+		WHERE PC_NumPoints(patch)>85
+			AND gid >= 369310 AND gid < 372838
+			AND points_per_level IS NOT NULL
+		) AS toto
+		--LIMIT 1
+	)
+TO '/media/sf_E_RemiCura/DATA/tmp_pointcloud_total.csv'-- '/tmp/temp_pointcloud.csv'
+WITH csv header;
 
