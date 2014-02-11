@@ -508,7 +508,6 @@ AS
 $BODY$
 --function giving the maximim length bit representation of points
 DECLARE
-_the_query text;
 x_bm int;
 y_bm int;
 BEGIN
@@ -527,3 +526,36 @@ BEGIN
 END;
 $BODY$
   LANGUAGE plpgsql IMMUTABLE;
+
+
+
+-------
+----Note : trying to create a sql version : 2 times slower.
+-------
+  DROP FUNCTION IF EXISTS public.rc_P_sql(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
+--OUT x_bm INT, OUT y_bm INT, 
+OUT distance INT);
+CREATE OR REPLACE FUNCTION public.rc_P_sql(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
+--OUT x_bm INT, OUT y_bm INT, 
+OUT distance INT)
+AS
+$BODY$
+--function giving the maximim length bit representation of points
+
+	--x_bf :=(          ( x-min_x)*2^tot_tree_level / (max_x-min_x)      )::int;
+	--y_bf :=(          ( y-min_y)*2^tot_tree_level / (max_y-min_y)      )::int;
+
+
+	with _bf AS (
+		SELECT  x_bf - x_bf%(2^(tot_tree_level-tree_level))::int AS x_bl,  y_bf - y_bf%(2^(tot_tree_level-tree_level))::int AS y_bl
+	)
+	,_bm AS (
+	SELECT  ( x_bl + 2^(tot_tree_level-tree_level-1))::int AS x_bm, ( y_bl + 2^(tot_tree_level-tree_level-1))::int AS y_bm
+	FROM _bf
+	)
+	SELECT _bm.*, GREATEST(@(x_bf-x_bm),@(y_bf-y_bm) ) AS distance
+	FROM _bm;
+	
+$BODY$
+  LANGUAGE sql IMMUTABLE;
+

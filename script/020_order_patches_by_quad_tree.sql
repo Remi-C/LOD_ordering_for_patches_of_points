@@ -20,7 +20,7 @@ DROP FUNCTION IF EXISTS public.rc_OrderPatchByQuadTree( a_patch PCPATCH , tot_tr
 
 
 			--create a temp table with points inside patch
-				DROP TABLE IF EXISTS temp_ordering_patch;
+				/*DROP TABLE IF EXISTS temp_ordering_patch;
 				CREATE TEMP TABLE temp_ordering_patch AS 
 					WITH points AS (
 						SELECT row_number() over() AS oid,  points
@@ -28,7 +28,14 @@ DROP FUNCTION IF EXISTS public.rc_OrderPatchByQuadTree( a_patch PCPATCH , tot_tr
 					)
 					SELECT oid, Pc_Get(points,'x') AS x, Pc_Get(points,'y') AS y, ST_MakePoint( Pc_Get(points,'x'), Pc_Get(points,'y')) as point
 					FROM points;
-					
+					*/
+				CREATE TEMP TABLE temp_ordering_patch AS 
+					WITH points AS (
+						SELECT row_number() over() AS oid,  points
+						FROM ST_Force2D(PC_Explode(a_patch)::geometry) AS points
+					)
+					SELECT oid,ST_X(points) AS x, Pc_Get(points,'y') AS y, ST_MakePoint( Pc_Get(points,'x'), Pc_Get(points,'y')) as point
+					FROM points;
 			--order this points by quad tree
 
 				_r :=public.rc_OrderByQuadTree( 'temp_ordering_patch'::regclass , tot_tree_level);

@@ -210,16 +210,17 @@ UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET (patch, points_per_level)
 -- computing done in several transaction to limit memory consumption
 
 DECLARE @I; -- Variable names begin with a @
-SET @I = 0; -- @I is an integer
+SET @I = 1; -- @I is an integer
 WHILE @I < 360000
 BEGIN
 	UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET (patch, points_per_level)  
 		= (  result.o_patch, result.result_per_level)
 		FROM public.rc_OrderPatchByQuadTree( patch , 7) AS result
 		WHERE PC_NumPoints(patch)>85
-		AND gid >= @I AND gid < (@I + 1000);
-   SET @I = @I + 1000;
+		AND gid >= @I AND gid < (@I + 100);
+   SET @I = @I + 100;
 END
+
 
 
 --exploding the patches with LOD into points to a new table
@@ -265,3 +266,46 @@ COPY
 TO '/media/sf_E_RemiCura/DATA/tmp_pointcloud_total.csv'-- '/tmp/temp_pointcloud.csv'
 WITH csv header;
 
+
+--how many patch have been LOD-ed ?
+
+		SELECT count(*)
+		FROM acquisition_tmob_012013.riegl_pcpatch_space 
+		WHERE points_per_level IS NOT NULL
+			AND PC_NumPoints(patch)>85
+
+
+--some profiling on the time to create LOD
+	--getting some big patches
+		SELECT gid
+		FROM acquisition_tmob_012013.riegl_pcpatch_space 
+		WHERE PC_NumPoints(patch)>10000
+		AND gid > 380000
+		LIMIT 10
+
+	--clearing stats :
+	SELECT pg_stat_reset();
+	
+	--updating the patches
+		UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET (patch, points_per_level)  
+		= (  result.o_patch, result.result_per_level)
+		FROM public.rc_OrderPatchByQuadTree( patch , 7) AS result
+		WHERE PC_NumPoints(patch)>10000
+		--AND gid IN (391820,389893,394377,396616,468230,387036,441103,472601,386876,389797)
+		AND gid IN (380003,405432,380312,411512,405829,399971,420812,411429,411294,398664);
+		
+	--64 sec for 10 >10kpoints patches
+	--usage :		_ 30 % : rc_orderbyquadtreel
+	--			_ 30 % : rc_p
+	--viewing result$
+	SELECT *
+	FROM pg_stat_user_functions
+	ORDER BY self_time DESC
+
+	SELECT *
+	FROM pg_statio_user_tables
+
+
+
+
+	
