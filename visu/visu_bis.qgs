@@ -4,51 +4,56 @@
     <mapcanvas>
         <units>meters</units>
         <extent>
-            <xmin>260010.15323712181998417</xmin>
-            <ymin>6248483.11236525606364012</ymin>
-            <xmax>260016.74071151408134028</xmax>
-            <ymax>6248487.61169922258704901</ymax>
+            <xmin>1870.5200456474353814</xmin>
+            <ymin>20919.14851915119652404</ymin>
+            <xmax>1911.73087685354084897</xmax>
+            <ymax>20944.18240586994943442</ymax>
         </extent>
         <projections>1</projections>
         <destinationsrs>
             <spatialrefsys>
-                <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs</proj4>
-                <srsid>3857</srsid>
-                <srid>3857</srid>
-                <authid>EPSG:3857</authid>
-                <description>WGS 84 / Pseudo Mercator</description>
-                <projectionacronym>merc</projectionacronym>
-                <ellipsoidacronym>WGS84</ellipsoidacronym>
+                <proj4>+proj=lcc +lat_1=44 +lat_2=49 +lat_0=46.5 +lon_0=3 +x_0=51000 +y_0=-240000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs</proj4>
+                <srsid>100003</srsid>
+                <srid>0</srid>
+                <authid>USER:100003</authid>
+                <description>Laser_Riegl_TMob_Fevrier_2013</description>
+                <projectionacronym>lcc</projectionacronym>
+                <ellipsoidacronym></ellipsoidacronym>
                 <geographicflag>false</geographicflag>
             </spatialrefsys>
         </destinationsrs>
     </mapcanvas>
-    <legend updateDrawingOrder="true" activeLayer="temp_points_in_patch_ordered20131115183422781">
-        <legendlayer drawingOrder="-1" open="true" checked="Qt::Checked" name="temp_points_in_patch_ordered [745210]" showFeatureCount="1">
+    <legend updateDrawingOrder="true" activeLayer="level_4_points_gid_360k_to_380k20140212104113389">
+        <legendlayer drawingOrder="-1" open="true" checked="Qt::Checked" name="non_lod_points_gid_360k_to_380k" showFeatureCount="0">
             <filegroup open="true" hidden="false">
-                <legendlayerfile isInOverview="0" layerid="temp_points_in_patch_ordered20131115183422781" visible="1"/>
+                <legendlayerfile isInOverview="0" layerid="non_lod_points_gid_360k_to_380k20140212104233513" visible="1"/>
+            </filegroup>
+        </legendlayer>
+        <legendlayer drawingOrder="-1" open="true" checked="Qt::Checked" name="level_4_points_gid_360k_to_380k" showFeatureCount="0">
+            <filegroup open="true" hidden="false">
+                <legendlayerfile isInOverview="0" layerid="level_4_points_gid_360k_to_380k20140212104113389" visible="1"/>
             </filegroup>
         </legendlayer>
     </legend>
-    <projectlayers layercount="1">
-        <maplayer minimumScale="0" maximumScale="1e+08" minLabelScale="0" maxLabelScale="1e+08" geometry="Point" type="vector" hasScaleBasedVisibilityFlag="0" scaleBasedLabelVisibilityFlag="0">
-            <id>temp_points_in_patch_ordered20131115183422781</id>
-            <datasource>dbname='test_pointcloud' host=localhost port=5433 user='postgres' password='postgres' sslmode=disable key='tid' srid=0 type=POINT table="public"."temp_points_in_patch_ordered" (point) sql=</datasource>
+    <projectlayers layercount="2">
+        <maplayer minimumScale="-4.65661e-10" maximumScale="1e+08" minLabelScale="0" maxLabelScale="1e+08" geometry="Point" type="vector" hasScaleBasedVisibilityFlag="0" scaleBasedLabelVisibilityFlag="0">
+            <id>level_4_points_gid_360k_to_380k20140212104113389</id>
+            <datasource>dbname='test_pointcloud' host=localhost port=5433 user='postgres' password='postgres' sslmode=disable key='tid' srid=0 type=POINT table="public"."level_4_points_gid_360k_to_380k" (point) sql=</datasource>
             <title></title>
             <abstract></abstract>
             <keywordList>
                 <value></value>
             </keywordList>
-            <layername>temp_points_in_patch_ordered</layername>
+            <layername>level_4_points_gid_360k_to_380k</layername>
             <srs>
                 <spatialrefsys>
                     <proj4>+proj=lcc +lat_1=44 +lat_2=49 +lat_0=46.5 +lon_0=3 +x_0=51000 +y_0=-240000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs</proj4>
-                    <srsid>100000</srsid>
+                    <srsid>100003</srsid>
                     <srid>0</srid>
-                    <authid>USER:100000</authid>
-                    <description> * SCR généré (+proj=lcc +lat_1=44 +lat_2=49 +lat_0=46.5 +lon_0=3 +x_0=51000 +y_0=-240000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs)</description>
+                    <authid>USER:100003</authid>
+                    <description>Laser_Riegl_TMob_Fevrier_2013</description>
                     <projectionacronym>lcc</projectionacronym>
-                    <ellipsoidacronym>GRS80</ellipsoidacronym>
+                    <ellipsoidacronym></ellipsoidacronym>
                     <geographicflag>false</geographicflag>
                 </spatialrefsys>
             </srs>
@@ -57,31 +62,16 @@
             <vectorjoins/>
             <renderer-v2 attr="ord" symbollevels="0" type="graduatedSymbol">
                 <ranges>
-                    <range symbol="0" lower="22.000000" upper="100.000000" label="43.0000 - 57.0000"/>
-                    <range symbol="1" lower="6.000000" upper="21.000000" label="29.0000 - 43.0000"/>
-                    <range symbol="2" lower="2.000000" upper="5.000000" label="15.0000 - 29.0000"/>
-                    <range symbol="3" lower="0.000000" upper="1.000000" label="1.0000 - 15.0000"/>
+                    <range symbol="0" lower="1.000000" upper="1.000000" label="1.0000 - 17.8000"/>
+                    <range symbol="1" lower="2.000000" upper="5.000000" label="17.8000 - 34.6000"/>
+                    <range symbol="2" lower="6.000000" upper="21.000000" label="34.6000 - 51.4000"/>
+                    <range symbol="3" lower="22.000000" upper="85.000000" label="51.4000 - 68.2000"/>
                 </ranges>
                 <symbols>
-                    <symbol alpha="1" type="marker" name="0">
+                    <symbol alpha="0" type="marker" name="0">
                         <layer pass="0" class="SimpleMarker" locked="0">
                             <prop k="angle" v="0"/>
-                            <prop k="color" v="170,255,255,255"/>
-                            <prop k="color_border" v="0,0,0,255"/>
-                            <prop k="name" v="circle"/>
-                            <prop k="offset" v="0,0"/>
-                            <prop k="offset_unit" v="MM"/>
-                            <prop k="outline_width" v="0"/>
-                            <prop k="outline_width_unit" v="MM"/>
-                            <prop k="scale_method" v="area"/>
-                            <prop k="size" v="1.1"/>
-                            <prop k="size_unit" v="MM"/>
-                        </layer>
-                    </symbol>
-                    <symbol alpha="1" type="marker" name="1">
-                        <layer pass="0" class="SimpleMarker" locked="0">
-                            <prop k="angle" v="0"/>
-                            <prop k="color" v="85,170,127,255"/>
+                            <prop k="color" v="73,198,236,255"/>
                             <prop k="color_border" v="0,0,0,255"/>
                             <prop k="name" v="circle"/>
                             <prop k="offset" v="0,0"/>
@@ -93,10 +83,10 @@
                             <prop k="size_unit" v="MM"/>
                         </layer>
                     </symbol>
-                    <symbol alpha="1" type="marker" name="2">
+                    <symbol alpha="0" type="marker" name="1">
                         <layer pass="0" class="SimpleMarker" locked="0">
                             <prop k="angle" v="0"/>
-                            <prop k="color" v="199,242,5,255"/>
+                            <prop k="color" v="135,109,221,255"/>
                             <prop k="color_border" v="0,0,0,255"/>
                             <prop k="name" v="circle"/>
                             <prop k="offset" v="0,0"/>
@@ -104,14 +94,29 @@
                             <prop k="outline_width" v="0"/>
                             <prop k="outline_width_unit" v="MM"/>
                             <prop k="scale_method" v="area"/>
-                            <prop k="size" v="3"/>
+                            <prop k="size" v="2"/>
+                            <prop k="size_unit" v="MM"/>
+                        </layer>
+                    </symbol>
+                    <symbol alpha="0" type="marker" name="2">
+                        <layer pass="0" class="SimpleMarker" locked="0">
+                            <prop k="angle" v="0"/>
+                            <prop k="color" v="166,219,120,255"/>
+                            <prop k="color_border" v="0,0,0,255"/>
+                            <prop k="name" v="circle"/>
+                            <prop k="offset" v="0,0"/>
+                            <prop k="offset_unit" v="MM"/>
+                            <prop k="outline_width" v="0"/>
+                            <prop k="outline_width_unit" v="MM"/>
+                            <prop k="scale_method" v="area"/>
+                            <prop k="size" v="2"/>
                             <prop k="size_unit" v="MM"/>
                         </layer>
                     </symbol>
                     <symbol alpha="1" type="marker" name="3">
                         <layer pass="0" class="SimpleMarker" locked="0">
                             <prop k="angle" v="0"/>
-                            <prop k="color" v="255,0,0,255"/>
+                            <prop k="color" v="196,122,212,255"/>
                             <prop k="color_border" v="0,0,0,255"/>
                             <prop k="name" v="circle"/>
                             <prop k="offset" v="0,0"/>
@@ -119,7 +124,7 @@
                             <prop k="outline_width" v="0"/>
                             <prop k="outline_width_unit" v="MM"/>
                             <prop k="scale_method" v="area"/>
-                            <prop k="size" v="4"/>
+                            <prop k="size" v="2"/>
                             <prop k="size_unit" v="MM"/>
                         </layer>
                     </symbol>
@@ -128,7 +133,7 @@
                     <symbol alpha="1" type="marker" name="0">
                         <layer pass="0" class="SimpleMarker" locked="0">
                             <prop k="angle" v="0"/>
-                            <prop k="color" v="109,5,137,255"/>
+                            <prop k="color" v="131,178,0,255"/>
                             <prop k="color_border" v="0,0,0,255"/>
                             <prop k="name" v="circle"/>
                             <prop k="offset" v="0,0"/>
@@ -136,16 +141,19 @@
                             <prop k="outline_width" v="0"/>
                             <prop k="outline_width_unit" v="MM"/>
                             <prop k="scale_method" v="area"/>
-                            <prop k="size" v="1.2"/>
+                            <prop k="size" v="2"/>
                             <prop k="size_unit" v="MM"/>
                         </layer>
                     </symbol>
                 </source-symbol>
-                <colorramp type="gradient" name="[source]">
-                    <prop k="color1" v="247,251,255,255"/>
-                    <prop k="color2" v="8,48,107,255"/>
-                    <prop k="discrete" v="0"/>
-                    <prop k="stops" v="0.13;222,235,247,255:0.26;198,219,239,255:0.39;158,202,225,255:0.52;107,174,214,255:0.65;66,146,198,255:0.78;33,113,181,255:0.9;8,81,156,255"/>
+                <colorramp type="random" name="[source]">
+                    <prop k="count" v="99"/>
+                    <prop k="hueMax" v="359"/>
+                    <prop k="hueMin" v="0"/>
+                    <prop k="satMax" v="240"/>
+                    <prop k="satMin" v="100"/>
+                    <prop k="valMax" v="240"/>
+                    <prop k="valMin" v="200"/>
                 </colorramp>
                 <mode name="equal"/>
                 <rotation field=""/>
@@ -297,12 +305,90 @@
             <edittypes>
                 <edittype labelontop="0" editable="1" type="0" name="gid"/>
                 <edittype labelontop="0" editable="1" type="0" name="ord"/>
-                <edittype labelontop="0" editable="1" type="0" name="points_per_level"/>
                 <edittype labelontop="0" editable="1" type="0" name="qgis_id"/>
             </edittypes>
-            <editform>.</editform>
+            <editform></editform>
             <editforminit></editforminit>
-            <annotationform>.</annotationform>
+            <annotationform></annotationform>
+            <editorlayout>generatedlayout</editorlayout>
+            <excludeAttributesWMS/>
+            <excludeAttributesWFS/>
+            <attributeactions/>
+        </maplayer>
+        <maplayer minimumScale="0" maximumScale="1e+08" minLabelScale="0" maxLabelScale="1e+08" geometry="Point" type="vector" hasScaleBasedVisibilityFlag="0" scaleBasedLabelVisibilityFlag="0">
+            <id>non_lod_points_gid_360k_to_380k20140212104233513</id>
+            <datasource>dbname='test_pointcloud' host=localhost port=5433 user='postgres' password='postgres' sslmode=disable key='qgis_id' srid=0 type=POINT table="public"."non_lod_points_gid_360k_to_380k" (point) sql=</datasource>
+            <title></title>
+            <abstract></abstract>
+            <keywordList>
+                <value></value>
+            </keywordList>
+            <layername>non_lod_points_gid_360k_to_380k</layername>
+            <srs>
+                <spatialrefsys>
+                    <proj4>+proj=lcc +lat_1=44 +lat_2=49 +lat_0=46.5 +lon_0=3 +x_0=51000 +y_0=-240000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs</proj4>
+                    <srsid>100003</srsid>
+                    <srid>0</srid>
+                    <authid>USER:100003</authid>
+                    <description>Laser_Riegl_TMob_Fevrier_2013</description>
+                    <projectionacronym>lcc</projectionacronym>
+                    <ellipsoidacronym></ellipsoidacronym>
+                    <geographicflag>false</geographicflag>
+                </spatialrefsys>
+            </srs>
+            <provider encoding="UTF-8">postgres</provider>
+            <previewExpression></previewExpression>
+            <vectorjoins/>
+            <renderer-v2 symbollevels="0" type="singleSymbol">
+                <symbols>
+                    <symbol alpha="1" type="marker" name="0">
+                        <layer pass="0" class="SimpleMarker" locked="0">
+                            <prop k="angle" v="0"/>
+                            <prop k="color" v="195,137,101,255"/>
+                            <prop k="color_border" v="0,0,0,255"/>
+                            <prop k="name" v="circle"/>
+                            <prop k="offset" v="0,0"/>
+                            <prop k="offset_unit" v="MM"/>
+                            <prop k="outline_width" v="0"/>
+                            <prop k="outline_width_unit" v="MM"/>
+                            <prop k="scale_method" v="area"/>
+                            <prop k="size" v="2"/>
+                            <prop k="size_unit" v="MM"/>
+                        </layer>
+                    </symbol>
+                </symbols>
+                <rotation field=""/>
+                <sizescale field="" scalemethod="area"/>
+            </renderer-v2>
+            <customproperties/>
+            <blendMode>0</blendMode>
+            <featureBlendMode>0</featureBlendMode>
+            <layerTransparency>0</layerTransparency>
+            <displayfield>qgis_id</displayfield>
+            <label>0</label>
+            <labelattributes>
+                <label fieldname="" text="Étiquette"/>
+                <family fieldname="" name="MS Shell Dlg 2"/>
+                <size fieldname="" units="pt" value="12"/>
+                <bold fieldname="" on="0"/>
+                <italic fieldname="" on="0"/>
+                <underline fieldname="" on="0"/>
+                <strikeout fieldname="" on="0"/>
+                <color fieldname="" red="0" blue="0" green="0"/>
+                <x fieldname=""/>
+                <y fieldname=""/>
+                <offset x="0" y="0" units="pt" yfieldname="" xfieldname=""/>
+                <angle fieldname="" value="0" auto="0"/>
+                <alignment fieldname="" value="center"/>
+                <buffercolor fieldname="" red="255" blue="255" green="255"/>
+                <buffersize fieldname="" units="pt" value="1"/>
+                <bufferenabled fieldname="" on=""/>
+                <multilineenabled fieldname="" on=""/>
+                <selectedonly on=""/>
+            </labelattributes>
+            <editform></editform>
+            <editforminit></editforminit>
+            <annotationform></annotationform>
             <editorlayout>generatedlayout</editorlayout>
             <excludeAttributesWMS/>
             <excludeAttributesWFS/>
@@ -328,8 +414,8 @@
             <Automatic type="bool">true</Automatic>
             <DegreeFormat type="QString">D</DegreeFormat>
         </PositionPrecision>
-        <WMSContactPhone type="QString"></WMSContactPhone>
         <WMSServiceCapabilities type="bool">false</WMSServiceCapabilities>
+        <WMSContactPhone type="QString"></WMSContactPhone>
         <WMSServiceAbstract type="QString"></WMSServiceAbstract>
         <WMSAddWktGeometry type="bool">false</WMSAddWktGeometry>
         <Measure>
@@ -357,9 +443,9 @@
         </Macros>
         <WMSAccessConstraints type="QString"></WMSAccessConstraints>
         <SpatialRefSys>
-            <ProjectCRSProj4String type="QString">+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs</ProjectCRSProj4String>
+            <ProjectCRSProj4String type="QString">+proj=lcc +lat_1=44 +lat_2=49 +lat_0=46.5 +lon_0=3 +x_0=51000 +y_0=-240000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs</ProjectCRSProj4String>
             <ProjectCrs type="QString">EPSG:4326</ProjectCrs>
-            <ProjectCRSID type="int">3857</ProjectCRSID>
+            <ProjectCRSID type="int">100003</ProjectCRSID>
             <ProjectionsEnabled type="int">1</ProjectionsEnabled>
         </SpatialRefSys>
         <DefaultStyles>

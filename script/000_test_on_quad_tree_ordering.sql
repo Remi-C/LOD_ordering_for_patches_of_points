@@ -210,8 +210,8 @@ UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET (patch, points_per_level)
 -- computing done in several transaction to limit memory consumption
 
 DECLARE @I; -- Variable names begin with a @
-SET @I = 1; -- @I is an integer
-WHILE @I < 360000
+SET @I = 384900; -- @I is an integer
+WHILE @I <= 473129
 BEGIN
 	UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET (patch, points_per_level)  
 		= (  result.o_patch, result.result_per_level)
@@ -220,7 +220,6 @@ BEGIN
 		AND gid >= @I AND gid < (@I + 100);
    SET @I = @I + 100;
 END
-
 
 
 --exploding the patches with LOD into points to a new table
@@ -294,16 +293,16 @@ WITH csv header;
 		--AND gid IN (391820,389893,394377,396616,468230,387036,441103,472601,386876,389797)
 		AND gid IN (380003,405432,380312,411512,405829,399971,420812,411429,411294,398664);
 		
-	--64 sec for 10 >10kpoints patches
-	--usage :		_ 30 % : rc_orderbyquadtreel
-	--			_ 30 % : rc_p
+
 	--viewing result$
 	SELECT *
 	FROM pg_stat_user_functions
 	ORDER BY self_time DESC
 
-	SELECT *
-	FROM pg_statio_user_tables
+	--64 sec for 10 >10kpoints patches
+	--usage :		_ 30 % : rc_orderbyquadtreel --> include the grouping and ordering by distance
+	--			_ 30 % : rc_p  --> stupid computing, but lot's of it. ==> should be put to C
+	--			_15 % : rc_orderpatchbyquadtree  --> include patch exploding and recopy
 
 
 

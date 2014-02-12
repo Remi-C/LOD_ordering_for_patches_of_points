@@ -31,10 +31,10 @@ DROP FUNCTION IF EXISTS public.rc_OrderPatchByQuadTree( a_patch PCPATCH , tot_tr
 					*/
 				CREATE TEMP TABLE temp_ordering_patch AS 
 					WITH points AS (
-						SELECT row_number() over() AS oid,  points
-						FROM ST_Force2D(PC_Explode(a_patch)::geometry) AS points
+						SELECT row_number() over() AS oid,   ST_Force2D(points::geometry) AS points
+						FROM PC_Explode(a_patch) AS points
 					)
-					SELECT oid,ST_X(points) AS x, Pc_Get(points,'y') AS y, ST_MakePoint( Pc_Get(points,'x'), Pc_Get(points,'y')) as point
+					SELECT oid,ST_X(points) AS x, ST_Y(points) AS y --, points as point --commented out : not needed for the following
 					FROM points;
 			--order this points by quad tree
 
