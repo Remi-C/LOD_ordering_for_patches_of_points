@@ -1,38 +1,47 @@
 ﻿---------------------------------------------
---Copyright Remi-C  22/10/2013
+--Copyright Remi-C  15/02/2014
 --
 --
---This script expects a postgres >= 9.3, Postgis >= 2.0.2, postgis topology enabled
+--This script expects a postgres >= 9.3, Postgis >= 2.0.2 , pointcloud
 --
 --
 --------------------------------------------
 
+----------Abstract-------------------
+--
+--This script has function to order a pointcloud following the points closest to the center of octree cells
+--
+--------------------------------------
+
 
 
 -------------------------------
---Ordering points by a quad tree approach
+--Ordering points by an octree approach
 --
---Given a lcoalized point cloud, we propose a way to order the points based on their  XY coordinnates, following a quad tree approach, 
---where we try to  have for each level a uniform repartition of selected points.
+--Given a lcoalized point cloud, we propose a way to order the points based on their  XYZ coordinnates, following an octree approach, 
+--where we try to  have for each level a uniform repartition in space of ordered points.
+--That is , for each level of an octree, we keep a point per cell whih is the closest to the center of the cell.
+--
 --
 --inside a level points are ordered randomly (more intelligent ordering may be preferable, like a defined pattern which gives some assurance about distribution)
+--We could use a Z curb ordering and inverting (read right to left) the binary representation. 
 --
---This is achieved with several function, with the top function being public.rc_OrderByQuadTree( pointsTable regclass, tot_tree_level INT,OUT result_per_level int[]);
+--This is achieved with several function, with the top function being public.rc_OrderByOcTree( pointsTable regclass, tot_tree_level INT,OUT result_per_level int[]);
 --
---and an intermediate function being public.rc_OrderByQuadTreeL( pointsTable text,  tree_level INT, tot_tree_level INT);
+--and an intermediate function being public.rc_OrderByOcTreeL( pointsTable text,  tree_level INT, tot_tree_level INT);
 --
 --this function will return oid of points with an int giving the order for all asked level + the number of points found per level. 
 -- All levels will be computed except if a level has less points than the preceding level
 --
---	this function expects a table with         | oid::int | x::double | y::double |
+--	this function expects a table with         | oid::int | x::float | y::float | z::float | ord | level
 --
 ------------
 --How does it works?
 ------
---	for a given tree level, we are going to compute x_bf and y_bf, meaning x_binary_full. This are x  (y) translated by -min_x (-min_y), scaled by (max_x-min_x)2^tree_depth.
---	this means x_bf (y_bf) are, when considering binary representation , the path allong a perfect quad tree covering ((min_x,min_y),(max_x,max_y)). 
+--	for a given tree level, we are going to compute x_bf and y_bf and z_bf, meaning x_binary_full. This are x  (y,z) translated by -min_x (-min_y, -min_z), scaled by (max_x-min_x)2^tree_depth.
+--	this means x_bf (y_bf, z_bf) are, when considering binary representation , the path allong a perfect Octree covering ((min_x,min_y,min_z),(max_x,max_y,max_z). 
 --	For instance, x_bf = B'0110' means the first LOD is the bottom square, the second LOD the upper square, the third LOD the bottom square, the 4th LOD the upper square.
---	doing the same think for y_bf, we get the localisation of the points for each quad tree level.
+--	doing the same think for y_bf, and z_bf we get the localisation of the points for each  Octree level.
 --
 --
 --
@@ -41,7 +50,7 @@
 --	Example  : x = B'10011101', L=3 x_bl = B'10011000', this amount to truncate the L last binary digits. In the decimal world, it amounts to something like 
 --	 x_l = x_f - x_f%(2^L), where % is the modulo and ^ the power. 
 --
---finally, we compute x_bm and y_bm , for x_binary_middle.
+--finally, we compute x_bm and y_bm and z_bm, for x_binary_middle.
 --	this is the coordinate of the middle point of the square for a given point and a given level.
 --	per construction, this is the target point, ie, we would like, for each level, to find real points as close as possible to this target points.
 --	There are 2^L middle points per level (1 per square)
@@ -51,19 +60,20 @@
 --We want to find the points closest to target points. For all the points in point cloud, we compute the distance between the x_bf,y_bf and the middle point x_bm,y_bm.
 --	This distance is computed using the square norme distance, that is
 --	GREATEST(@(x_bm-x_bf),@(y_bm-y_bf) );, where @ is the absolute value. 
---	This norm is ideal fot what we want because all points in the miniml square (max level) will have the same distance to a point. 
+--	This norm is ideal for what we want because all points in the miniml square (max level) will have the same distance to a point. 
 --	This is very coherent with the idea of the algorithm and avoid rounding issues, as well as allow fast computation.
+--	Of course the distance computing is only done for the points in the cell, points outside cannot be candidate.
 --
 --In the implementation all these computing are united in one function
 --
---Then we select the closest point base don that distance. For this we tried 2 methods :
+--Then we select the closest point based on that distance. For this we tried 2 methods :
 --	first one is using windows function that, for each line, give the oid of the closest point within a square. Then we group by this oid.
 --	the other option is to use a custom aggregates : we group by square, then for each group, 
 --	we return one line with the oid of the min distance to middle point of this square, or nothing if no points.
 --
 --
 --We have now the points closest to middle points for each square, or nothing when the square is empty. 
---Now we order the points following either a custom order (reverse(x_bf)), or a random order.
+--Now we order the points following either a custom order (reverse(x_bf), Z curve space curve with smart modulo game), or a random order.
 --
 ------------------------------
 --List of function and dependency
@@ -94,8 +104,8 @@
 
 
 
-	DROP FUNCTION IF EXISTS public.rc_OrderByQuadTree( pointsTable regclass, tot_tree_level INT,OUT result_per_level int[]);
-		CREATE OR REPLACE FUNCTION public.rc_OrderByQuadTree( pointsTable regclass, tot_tree_level INT, OUT result_per_level int[])
+	DROP FUNCTION IF EXISTS public.rc_OrderByOcTree( pointsTable regclass, tot_tree_level INT,OUT result_per_level int[]);
+		CREATE OR REPLACE FUNCTION public.rc_OrderByOcTree( pointsTable regclass, tot_tree_level INT, OUT result_per_level int[])
 		 AS
 		$BODY$
 		--this function computes quad tree order for points.
@@ -112,7 +122,7 @@
 		BEGIN
 
 			--creating the column with x_bf and y_bf which will be used for computation by each level
-			PERFORM rc_CreatePbfColumn(pointsTable, tot_tree_level);
+			PERFORM rc_CreatePbfColumn3D(pointsTable, tot_tree_level);
 			--emptying column if previous classing
 			PERFORM format('UPDATE %I SET (lev,ord) = (NULL,NULL)',pointsTable);
 
@@ -145,7 +155,7 @@
 				--computing the ordering for the current tree level 
 				_q := format('
 					WITH the_order AS (
-						SELECT  public.rc_OrderByQuadTreeL( pointsTable:=''%I'',tree_level:=%s,tot_tree_level:=%s) ordering_result
+						SELECT  public.rc_OrderByOcTreeL( pointsTable:=''%I'',tree_level:=%s,tot_tree_level:=%s) ordering_result
 					)
 					,total_result AS (
 						SELECT  (t_o.ordering_result)[1] AS order_oid, (t_o.ordering_result)[2] AS ord
@@ -191,60 +201,59 @@
 		$BODY$
 		LANGUAGE plpgsql STRICT VOLATILE;
 
-		SELECT    public.rc_OrderByQuadTree( 'test_order_index_points'::regclass , 12);
+		--SELECT    public.rc_OrderByOcTree( 'test_order_index_points'::regclass , 12);
+		--SELECT *
+		--FROM test_order_index_points
+		--oRDER BY lev DESC 
 
-		SELECT *
-		FROM test_order_index_points
-		oRDER BY lev DESC 
-
-/*
 
 
 		--creating computing function :
-			DROP FUNCTION IF EXISTS public.rc_OrderByQuadTreeL( pointsTable regclass,  tree_level INT, tot_tree_level INT);
-			CREATE OR REPLACE FUNCTION public.rc_OrderByQuadTreeL( pointsTable regclass,  tree_level INT, tot_tree_level INT)
+			DROP FUNCTION IF EXISTS public.rc_OrderByOcTreeL( pointsTable regclass,  tree_level INT, tot_tree_level INT);
+			CREATE OR REPLACE FUNCTION public.rc_OrderByOcTreeL( pointsTable regclass,  tree_level INT, tot_tree_level INT)
 			RETURNS  SETOF int[] AS
 			$BODY$
 			--this function computes quad tree order for points.
 			--It expects as input 
 			--a table with a column oid of type to be cast to int with unique id, a column x of type to be cast to  numeric, a column y of type to be cast to numeric,
 			--a column level with the level of the point
-			--a column x_bf_L and y_bf_L double precision where L is the max tree depth, filled with ( x-min_x)*2^%s / (max_x-min_x) 
+			--a column x_bf_L and y_bf_L and z_bf_L double precision where L is the max tree depth, filled with ( x-min_x)*2^%s / (max_x-min_x) 
 			DECLARE
 			_q text :='';
 			BEGIN
 				_q := format('
 					WITH points AS (
-					SELECT oid::int, x::double precision, y::double precision, x_bf_%s, y_bf_%s
+					SELECT oid::int, x::double precision, y::double precision , z::double precision, x_bf_%s, y_bf_%s, z_bf_%s
 					FROM %I 
 					WHERE lev >= %s OR lev IS NULL),
 					quad_tree_level AS (
 						SELECT %s as tot_level, %s AS current_level LIMIT 1
-					)',tot_tree_level,tot_tree_level,pointsTable,tree_level,tot_tree_level, tree_level);
+					)',tot_tree_level,tot_tree_level,tot_tree_level,pointsTable,tree_level,tot_tree_level, tree_level);
 
 				_q := _q || format('
 					,
 					prep_for_comp AS (
 						SELECT
 						oid
-						,rc_P(x, y, qtl.current_level,qtl.tot_level ,x_bf_%s,y_bf_%s) f
+						,rc_P3D(x, y,z, qtl.current_level,qtl.tot_level ,x_bf_%s,y_bf_%s,z_bf_%s) f
 						FROM points,  quad_tree_level AS qtl 
-					)',tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level);
+					)',tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level);
 
 				_q := _q || format('
 					, selected AS (
 						SELECT
-							--first_value(oid) OVER (PARTITION BY (f).x_bl, (f).y_bl ORDER BY (f).distance ASC, oid ASC) AS selected_id
+							--first_value(oid) OVER (PARTITION BY (f).x_bl, (f).y_bl, (f).z_bl ORDER BY (f).distance ASC, oid ASC) AS selected_id
 							(rc_FindClosestPoint(ARRAY[oid::int,(f).distance]))[1] AS selected_id 
 						FROM prep_for_comp, quad_tree_level AS qtl
-						GROUP BY (f).x_bl::bit(%s), (f).y_bl::bit(%s)
+						GROUP BY (f).x_bl::bit(%s), (f).y_bl::bit(%s), (f).z_bl::bit(%s)
 					)
 					SELECT
 						ARRAY[selected_id::int, row_number() over (ORDER BY ( random()  ) )::int] AS oid_order
+						--note : the ordering should be a Z-curve (morton) read Right from left
 						--ARRAY[selected_id::int, row_number() over (ORDER BY (pfc.x_bf::int + pfc.y_bf::int),(pfc.x_bf::int - pfc.y_bf::int) )::int] AS oid_order
 						--ARRAY[selected_id::int, row_number() over (ORDER BY reverse(pfc.x_bf::text)::int + reverse(pfc.y_bf::text)::int,pfc.x_bf , pfc.y_bf )::int] AS oid_order
 					FROM selected gi LEFT JOIN prep_for_comp pfc ON (gi.selected_id = pfc.oid)
-					',tot_tree_level,tot_tree_level); 
+					',tot_tree_level,tot_tree_level,tot_tree_level); 
 					--raise notice '%',_q;
 					RETURN QUERY EXECUTE _q;
 					RETURN;  
@@ -257,11 +266,11 @@
 
 
 			--testing_lod_2
-			DROP TABLE IF EXISTS public.test_order_index_result;
-			CREATE table public.test_order_index_result AS
-				SELECT f.oid[1],f.oid[2] ord , toip.noisy_point, toip.geom
-				FROM public.rc_OrderByQuadTreeL( pointsTable:='test_order_index_points',tree_level:=6,tot_tree_level:=6) f(oid)
-				LEFT OUTER JOIN test_order_index_points toip ON (toip.oid= f.oid[1])
+			--DROP TABLE IF EXISTS public.test_order_index_result;
+			--CREATE table public.test_order_index_result AS
+			--	SELECT f.oid[1],f.oid[2] ord , toip.noisy_point, toip.geom
+			--	FROM public.rc_OrderByQuadTreeL( pointsTable:='test_order_index_points',tree_level:=6,tot_tree_level:=6) f(oid)
+			--	LEFT OUTER JOIN test_order_index_points toip ON (toip.oid= f.oid[1])
 
 				--sur 100k points
 				--sans rien : 3.2sec
@@ -288,8 +297,8 @@
 
 
 
-DROP FUNCTION IF EXISTS public.rc_CreatePbfColumn(points_table regclass, tot_tree_level INT,OUT columns_added BOOLEAN);
-CREATE OR REPLACE FUNCTION public.rc_CreatePbfColumn(points_table regclass, tot_tree_level INT, OUT columns_added BOOLEAN)
+DROP FUNCTION IF EXISTS public.rc_CreatePbfColumn3D(points_table regclass, tot_tree_level INT,OUT columns_added BOOLEAN);
+CREATE OR REPLACE FUNCTION public.rc_CreatePbfColumn3D(points_table regclass, tot_tree_level INT, OUT columns_added BOOLEAN)
 AS
 $BODY$
 --utility function for computing quad tree order
@@ -307,20 +316,24 @@ BEGIN
 		AND  public.rc_AddColIfNotExist( points_table,
 			format('y_bf_%s',tot_tree_level)
 			,'int') 
+		AND  public.rc_AddColIfNotExist( points_table,
+			format('z_bf_%s',tot_tree_level)
+			,'int') 
 		AND  public.rc_AddColIfNotExist( points_table,'lev'::text, 'int')
 		AND  public.rc_AddColIfNotExist( points_table,'ord'::text, 'int');
 
 	--computing values
 	_q := format('
 		WITH min AS (
-			SELECT min(x) min_x, min(y) AS min_y, max(x) AS max_x, max(y) AS max_y
+			SELECT min(x) min_x, min(y) AS min_y, min(z) AS min_z , max(x) AS max_x, max(y) AS max_y, max(z) AS max_z
 			FROM %I
 		)
 	UPDATE %I SET 
 		x_bf_%s =  (     ( x-min_x)*2^%s / CASE  (max_x-min_x) WHEN 0 THEN 1 ELSE  (max_x-min_x) END      )::int 
 		, y_bf_%s = (     ( y-min_y)*2^%s /CASE  (max_y-min_y) WHEN 0 THEN 1 ELSE  (max_y-min_y) END   )::int 
+		,z_bf_%s = (     ( z-min_z)*2^%s /CASE  (max_z-min_z) WHEN 0 THEN 1 ELSE  (max_z-min_z) END   )::int 
 		FROM min;'
-		,points_table,points_table,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level
+		,points_table,points_table,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level
 		);
 	--dafulat behavior : if column already exist, update x_bf and y_bf value
 	EXECUTE _q;
@@ -337,171 +350,14 @@ $BODY$
 
 
 		
-	SELECT rc_CreatePbfColumn('public.test_order_index_points', 6);
-
-	
-
-*/
-/*
-
-DROP FUNCTION IF EXISTS public.rc_FindClosestPoint_trans( incoming_state int[], result int[] ) CASCADE;
-CREATE OR REPLACE FUNCTION public.rc_FindClosestPoint_trans( incoming_state int[], result int[] )
-RETURNS  int[]  AS
-$BODY$
-DECLARE
-BEGIN
-	IF incoming_state[2] < result[2] THEN
-		-- updating result
-		result[2] := incoming_state[2];
-		result[1] := incoming_state[1];
-		RETURN result;
-	ELSE
-		RETURN result;
-	END IF;
-	return NULL;
-END;
-$BODY$
-  LANGUAGE plpgsql STRICT IMMUTABLE;
+	--SELECT rc_CreatePbfColumn3D('public.test_order_index_points', 6);
 
 
 
-
-----
---New idea : of an algorithm to find an order of quad tree 
---find the normalized binary representation of every element (-min, *2^8 , /(max-min) , keep first 8 bits)
--- for a given level (7) : group by previous level (6) using a right shif to the binary representation to pass from level 7 to level 6
---then use custom aggregate to return closest point to the center of each group. 
---The center if a group is defined as the binary representation of the level, padded with good number of 0 from the right.
---
-
-
-----
---custom aggregate function :
---it is called on a group of points belonging to the same interval we are working on
---it should find the closest point to the given middle of segment, or nothing if no points in the segment
---we want as return point id, distance
---
---the prototype of the function is something like :
---store min distance to middle point, store answer (id, distance)
---if current point is closer than stored distance, answer <- current point , else next point.
-----
-
-CREATE AGGREGATE rc_FindClosestPoint(int[])
-(
---take two arguments : first int is id of current point, second int is distance to mid point which we would like to see minimized
-    sfunc = rc_FindClosestPoint_trans,
-    stype =  int[]
-   -- initcond = '(0,1999999999)'
-);
-
-
-
-
-		
-DROP FUNCTION IF EXISTS public.rc_FindClosestPoint_trans( incoming_state int[], result int[] ) CASCADE;
-CREATE OR REPLACE FUNCTION public.rc_FindClosestPoint_trans( incoming_state int[], result int[] )
-RETURNS  int[]  AS
-$BODY$
-DECLARE
-BEGIN
-	IF incoming_state[2] < result[2] THEN
-		-- updating result
-		result[2] := incoming_state[2];
-		result[1] := incoming_state[1];
-		RETURN result;
-	ELSE
-		RETURN result;
-	END IF;
-	return NULL;
-END;
-$BODY$
-  LANGUAGE plpgsql STRICT IMMUTABLE;
-
-  SELECT  rc_FindClosestPoint_trans(1,1);
-
-
-		/* --TEST 
-		--we try to replace the min max by a custom aggregate function computing both at the same time. Unfortunately is is slower in plpgsql , would need a try in C
-		CREATE AGGREGATE rc_MinMax(double precision[])
-		(
-		--take one argument : the value we are scanning to get min and max
-		    sfunc = rc_MinMax_Trans,
-		    stype =  double precision[]
-		   -- initcond = '(0,1999999999)'
-		);
-		
-		--creating a custom aggregate to compute min and max simultaneously
-		DROP FUNCTION IF EXISTS public.rc_MinMax_Trans( incoming_state double precision [], outcoming_state double precision []) CASCADE;
-		CREATE OR REPLACE FUNCTION public.rc_MinMax_Trans( incoming_state double precision[], outcoming_state double precision [] ) 
-		RETURNS double precision[]  AS
-		$BODY$
-		DECLARE
-		BEGIN
-			outcoming_state[2]:= GREATEST (incoming_state[1], outcoming_state[2]);
-			outcoming_state[1]:= LEAST (incoming_state[1], outcoming_state[1]);
-			return outcoming_state;
-		END;
-		$BODY$
-		  LANGUAGE plpgsql STRICT IMMUTABLE;
-
-		  
-		DROP TYPE rc_dp_dp CASCADE;
-
-		
-		create type rc_dp_dp as ( 
-			_is double precision,
-			_os double precision
-		); 
-		
-		CREATE AGGREGATE rc_MinMax_dp(rc_dp_dp)
-		(
-		--take one argument : the value we are scanning to get min and max
-		    sfunc = rc_MinMax_Trans,
-		    stype =  rc_dp_dp
-		   -- initcond = '(0,1999999999)'
-		);
-		
-		--creating a custom aggregate to compute min and max simultaneously
-		DROP FUNCTION IF EXISTS public.rc_MinMax_Trans( i rc_dp_dp, o rc_dp_dp) CASCADE;
-		CREATE OR REPLACE FUNCTION public.rc_MinMax_Trans(  i rc_dp_dp, INOUT o rc_dp_dp) 
-		--RETURNS rc_dp_dp
-		 AS
-		$BODY$
-		DECLARE
-		BEGIN
-			IF (i)._is >  (o)._os THEN
-				o._os:=(i)._is ;
-			END IF;
-
-			IF (i)._is< (o)._is THEN 
-				o._is := (i)._is;
-			END IF ;
-			--o._os:= GREATEST ((i)._is, (o)._os);
-			--o._is := LEAST((i)._is, (o)._is);
-			return;
-		END;
-		$BODY$
-		  LANGUAGE plpgsql STRICT IMMUTABLE;
-
-		  SELECT  rc_FindClosestPoint_trans(1,1);
-		SELECT 
-			--min(x) min_x, min(y) AS min_y, max(x) AS max_x, max(y) AS max_y
-			--rc_MinMax(ARRAY[x])
-			rc_MinMax_dp( (x,NULL)::rc_dp_dp)
-			FROM public.test_order_index_points
-
-		*/
-  
-
-
-
-
-
-
-DROP FUNCTION IF EXISTS public.rc_P(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
+DROP FUNCTION IF EXISTS public.rc_P3D(x DOUBLE PRECISION, y DOUBLE PRECISION,z DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int,  z_bf int,OUT x_bl INT, OUT y_bl INT, OUT z_bl INT, 
 --OUT x_bm INT, OUT y_bm INT, 
 OUT distance INT);
-CREATE OR REPLACE FUNCTION public.rc_P(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
+CREATE OR REPLACE FUNCTION public.rc_P3D(x DOUBLE PRECISION, y DOUBLE PRECISION, z DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int,  z_bf int,OUT x_bl INT, OUT y_bl INT, OUT z_bl INT, 
 --OUT x_bm INT, OUT y_bm INT, 
 OUT distance INT)
 AS
@@ -510,18 +366,20 @@ $BODY$
 DECLARE
 x_bm int;
 y_bm int;
+z_bm INT;
 BEGIN
 	--x_bf :=(          ( x-min_x)*2^tot_tree_level / (max_x-min_x)      )::int;
 	--y_bf :=(          ( y-min_y)*2^tot_tree_level / (max_y-min_y)      )::int;
 
 	x_bl := x_bf - x_bf%(2^(tot_tree_level-tree_level))::int;
 	y_bl := y_bf - y_bf%(2^(tot_tree_level-tree_level))::int;
+	z_bl := z_bf - z_bf%(2^(tot_tree_level-tree_level))::int;
 	
 	x_bm :=( x_bl + 2^(tot_tree_level-tree_level-1))::int;
 	y_bm :=( y_bl + 2^(tot_tree_level-tree_level-1))::int;
+	z_bm :=( z_bl + 2^(tot_tree_level-tree_level-1))::int;
 	
-	--distance := GREATEST(@(x_bf-x_bm),@(y_bf-y_bm) ); --changed the distance definition
-	distance := (@(x_bf-x_bm))+(@(y_bf-y_bm) );
+	distance := GREATEST(@(x_bf-x_bm),@(y_bf-y_bm),@(z_bf-z_bm) );
 	
 	RETURN;	
 END;
@@ -529,34 +387,4 @@ $BODY$
   LANGUAGE plpgsql IMMUTABLE;
 
 
-
--------
-----Note : trying to create a sql version : 2 times slower.
--------
-  DROP FUNCTION IF EXISTS public.rc_P_sql(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
---OUT x_bm INT, OUT y_bm INT, 
-OUT distance INT);
-CREATE OR REPLACE FUNCTION public.rc_P_sql(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
---OUT x_bm INT, OUT y_bm INT, 
-OUT distance INT)
-AS
-$BODY$
---function giving the maximim length bit representation of points
-
-	--x_bf :=(          ( x-min_x)*2^tot_tree_level / (max_x-min_x)      )::int;
-	--y_bf :=(          ( y-min_y)*2^tot_tree_level / (max_y-min_y)      )::int;
-
-
-	with _bf AS (
-		SELECT  x_bf - x_bf%(2^(tot_tree_level-tree_level))::int AS x_bl,  y_bf - y_bf%(2^(tot_tree_level-tree_level))::int AS y_bl
-	)
-	,_bm AS (
-	SELECT  ( x_bl + 2^(tot_tree_level-tree_level-1))::int AS x_bm, ( y_bl + 2^(tot_tree_level-tree_level-1))::int AS y_bm
-	FROM _bf
-	)
-	SELECT _bm.*, GREATEST(@(x_bf-x_bm),@(y_bf-y_bm) ) AS distance
-	FROM _bm;
-	
-$BODY$
-  LANGUAGE sql IMMUTABLE;
 
