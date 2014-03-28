@@ -109,10 +109,15 @@
 		_end_indice int := 0;
 		_tot_points numeric;
 		_max_num_points_in_next_level BIGINT;
+		_n_pixel_x_transla int;
+		_n_pixel_y_transla INT;
+		_n_pixel_x int;
+		_n_pixel_y INT;
 		BEGIN
-
+	
 			--creating the column with x_bf and y_bf which will be used for computation by each level
-			PERFORM rc_CreatePbfColumn(pointsTable, tot_tree_level);
+			SELECT rc_CreatePbfColumn(pointsTable, tot_tree_level) INTO _n_pixel_x_transla,_n_pixel_y_transla,_n_pixel_x,_n_pixel_y;
+			RETURN  ;
 			--emptying column if previous classing
 			PERFORM format('UPDATE %I SET (lev,ord) = (NULL,NULL)',pointsTable);
 
@@ -145,7 +150,7 @@
 				--computing the ordering for the current tree level 
 				_q := format('
 					WITH the_order AS (
-						SELECT  public.rc_OrderByQuadTreeL( pointsTable:=''%I'',tree_level:=%s,tot_tree_level:=%s) ordering_result
+						SELECT  public.rc_OrderByQuadTreeL( pointsTable:=''%I'',tree_level:=%s,tot_tree_level:=%s,$1,$2,$3,$4) ordering_result
 					)
 					,total_result AS (
 						SELECT  (t_o.ordering_result)[1] AS order_oid, (t_o.ordering_result)[2] AS ord
@@ -166,7 +171,7 @@
 					EXIT;
 				END IF;
 			
-				EXECUTE _q INTO _pts_nb_in_current_level;
+				EXECUTE _q INTO _pts_nb_in_current_level USING _n_pixel_x_transla,_n_pixel_y_transla,_n_pixel_x,_n_pixel_y;
 
 			
 				--stopping in no points where ordered (not enough point and/or we went too deep in the tree)
@@ -190,19 +195,19 @@
 		END;
 		$BODY$
 		LANGUAGE plpgsql STRICT VOLATILE;
-
+/*
 		SELECT    public.rc_OrderByQuadTree( 'test_order_index_points'::regclass , 12);
+
 
 		SELECT *
 		FROM test_order_index_points
 		oRDER BY lev DESC 
 
-/*
-
+*/
 
 		--creating computing function :
-			DROP FUNCTION IF EXISTS public.rc_OrderByQuadTreeL( pointsTable regclass,  tree_level INT, tot_tree_level INT);
-			CREATE OR REPLACE FUNCTION public.rc_OrderByQuadTreeL( pointsTable regclass,  tree_level INT, tot_tree_level INT)
+			DROP FUNCTION IF EXISTS public.rc_OrderByQuadTreeL( pointsTable regclass,  tree_level INT, tot_tree_level INT, n_pixel_x_transla int, n_pixel_y_transla INT, n_pixel_x int, n_pixel_y INT);
+			CREATE OR REPLACE FUNCTION public.rc_OrderByQuadTreeL( pointsTable regclass,  tree_level INT, tot_tree_level INT, n_pixel_x_transla int, n_pixel_y_transla INT, n_pixel_x int, n_pixel_y INT)
 			RETURNS  SETOF int[] AS
 			$BODY$
 			--this function computes quad tree order for points.
@@ -227,7 +232,7 @@
 					prep_for_comp AS (
 						SELECT
 						oid
-						,rc_P(x, y, qtl.current_level,qtl.tot_level ,x_bf_%s,y_bf_%s) f
+						,rc_P(x, y, qtl.current_level,qtl.tot_level ,$1,$2,$3,$4,x_bf_%s,y_bf_%s)  AS f
 						FROM points,  quad_tree_level AS qtl 
 					)',tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level);
 
@@ -246,7 +251,7 @@
 					FROM selected gi LEFT JOIN prep_for_comp pfc ON (gi.selected_id = pfc.oid)
 					',tot_tree_level,tot_tree_level); 
 					--raise notice '%',_q;
-					RETURN QUERY EXECUTE _q;
+					RETURN QUERY EXECUTE _q USING  n_pixel_x_transla  , n_pixel_y_transla,n_pixel_x  , n_pixel_y ;
 					RETURN;  
 			--	RAISE NOTICE 'the querry 
 			--	%',_q;	 
@@ -257,12 +262,12 @@
 
 
 			--testing_lod_2
-			DROP TABLE IF EXISTS public.test_order_index_result;
+/*			DROP TABLE IF EXISTS public.test_order_index_result;
 			CREATE table public.test_order_index_result AS
 				SELECT f.oid[1],f.oid[2] ord , toip.noisy_point, toip.geom
 				FROM public.rc_OrderByQuadTreeL( pointsTable:='test_order_index_points',tree_level:=6,tot_tree_level:=6) f(oid)
 				LEFT OUTER JOIN test_order_index_points toip ON (toip.oid= f.oid[1])
-
+*/
 				--sur 100k points
 				--sans rien : 3.2sec
 					--les min : 5.3sec
@@ -288,8 +293,8 @@
 
 
 
-DROP FUNCTION IF EXISTS public.rc_CreatePbfColumn(points_table regclass, tot_tree_level INT,OUT columns_added BOOLEAN);
-CREATE OR REPLACE FUNCTION public.rc_CreatePbfColumn(points_table regclass, tot_tree_level INT, OUT columns_added BOOLEAN)
+DROP FUNCTION IF EXISTS public.rc_CreatePbfColumn(points_table regclass, tot_tree_level INT,OUT n_pixel_x_transla int, OUT n_pixel_y_transla INT,OUT n_pixel_x  int, OUT n_pixel_y  INT);
+CREATE OR REPLACE FUNCTION public.rc_CreatePbfColumn(points_table regclass, tot_tree_level INT,OUT n_pixel_x_transla int, OUT n_pixel_y_transla INT,OUT n_pixel_x  int, OUT n_pixel_y  INT)
 AS
 $BODY$
 --utility function for computing quad tree order
@@ -298,6 +303,7 @@ $BODY$
 --x_b and y_bf are computed based on value of x and y and tot_tree_level following the formula : 
 DECLARE
 _q text;
+columns_added boolean;
 BEGIN
 	--creating columns in the given table if they don't exist
 	
@@ -313,18 +319,48 @@ BEGIN
 	--computing values
 	_q := format('
 		WITH min AS (
-			SELECT min(x) min_x, min(y) AS min_y, max(x) AS max_x, max(y) AS max_y
+			SELECT min(x) AS min_x, min(y) AS min_y, max(x) AS max_x, max(y) AS max_y
+				,2^%s  AS tot_num_pixel
 			FROM %I
 		)
-	UPDATE %I SET 
-		x_bf_%s =  (     ( x-min_x)*2^%s / CASE  (max_x-min_x) WHEN 0 THEN 1 ELSE  (max_x-min_x) END      )::int 
-		, y_bf_%s = (     ( y-min_y)*2^%s /CASE  (max_y-min_y) WHEN 0 THEN 1 ELSE  (max_y-min_y) END   )::int 
-		FROM min;'
-		,points_table,points_table,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level
+		,inter AS (
+			SELECT CASE  (max_x-min_x) WHEN 0 THEN 1 ELSE  (max_x-min_x) END AS int_x
+				, CASE  (max_y-min_y) WHEN 0 THEN 1 ELSE  (max_y-min_y) END AS int_y
+				, min.*
+			FROM min
+		)
+		,larg AS (
+			SELECT greatest(int_x,int_y) as b_int, least(int_x,int_y) as s_int, inter.*
+			FROM inter
+		)
+		,npix AS (
+			SELECT *, int_x*1.0/b_int * tot_num_pixel  AS n_pix_x,  int_y*1.0/b_int * tot_num_pixel AS n_pix_y
+			FROM larg
+		)
+		,the_update AS (
+			UPDATE %I SET 
+				x_bf_%s =   (      ( x-min_x)*tot_num_pixel/ b_int       )::int 
+				, y_bf_%s = (     ( y-min_y)*tot_num_pixel / b_int     )::int 
+				FROM larg
+				RETURNING 1
+			)
+		,trans AS (
+			SELECT CASE WHEN int_x<int_y THEN (n_pix_x/2-n_pix_y/2)::int
+				ELSE 0
+				END AS n_pixel_x_transla
+				,CASE WHEN int_y<int_x THEN (n_pix_y/2-n_pix_x/2)::int
+				ELSE 0
+				END AS n_pixel_y_transla
+				,n_pix_x::int
+				,n_pix_y::int
+			FROM npix
+		)
+		SELECT n_pixel_x_transla, n_pixel_y_transla,n_pix_x,n_pix_y
+		FROM trans;'
+		,tot_tree_level,points_table,points_table,tot_tree_level,tot_tree_level
 		);
 	--dafulat behavior : if column already exist, update x_bf and y_bf value
-	EXECUTE _q;
-
+	EXECUTE _q INTO n_pixel_x_transla,n_pixel_y_transla,n_pixel_x,n_pixel_y; 
 	--creating indexes on columns, only when we just added the columns. Else we expect the indexes to already exist
 	--IF(columns_added=TRUE) THEN
 		--NOTE : not adding indexes for the moment as it would be difficult to evaluate which type of index may help.
@@ -339,9 +375,56 @@ $BODY$
 		
 	SELECT rc_CreatePbfColumn('public.test_order_index_points', 6);
 
+
+
 	
 
-*/
+
+
+
+	DROP FUNCTION IF EXISTS public.rc_P(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, n_pixel_x_transla int, n_pixel_y_transla INT, n_pixel_x int, n_pixel_y INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
+	OUT x_bm INT, OUT y_bm INT, 
+	OUT distance INT);
+	CREATE OR REPLACE FUNCTION public.rc_P(
+		x DOUBLE PRECISION, y DOUBLE PRECISION
+		,tree_level INT, tot_tree_level INT
+		, n_pixel_x_transla int, n_pixel_y_transla INT, n_pixel_x int, n_pixel_y INT, x_bf int,  y_bf int
+		, OUT x_bl INT, OUT y_bl INT, 
+		OUT x_bm INT, OUT y_bm INT, 
+		OUT distance INT)
+	AS
+		$BODY$
+		--function giving the maximim length bit representation of points
+		DECLARE
+		BEGIN
+			--x_bf :=(          ( x-min_x)*2^tot_tree_level / (max_x-min_x)      )::int;
+			--y_bf :=(          ( y-min_y)*2^tot_tree_level / (max_y-min_y)      )::int;
+
+			
+			
+			--x_bl := x_bf - x_bf%(2^(tot_tree_level-tree_level))::int;
+			--y_bl := y_bf - y_bf%(2^(tot_tree_level-tree_level))::int;
+
+			x_bl := x_bf - (x_bf+n_pixel_x_transla-1)%GREATEST((2^(tot_tree_level-tree_level))::int,1);
+			y_bl := y_bf - (y_bf-n_pixel_y_transla-1)%GREATEST((2^(tot_tree_level-tree_level))::int,1);
+
+			--x_bl := x_bf - x_bf%(2^(tot_tree_level-tree_level))::int;
+			--y_bl := y_bf - y_bf%(2^(tot_tree_level-tree_level))::int;
+
+			x_bm :=(( x_bl + 2^(tot_tree_level-tree_level-1))::int  )::int;
+			y_bm :=(( y_bl + 2^(tot_tree_level-tree_level-1))::int  )::int;
+
+			--RAISE NOTICE 'x_bm : % , y_bm : %',x_bm,y_bm;
+			
+			--distance := GREATEST(@(x_bf-x_bm),@(y_bf-y_bm) );
+			distance := (@(x_bf-x_bm))+(@(y_bf-y_bm) );
+			
+			RETURN;	
+		END;
+		$BODY$
+	  LANGUAGE plpgsql IMMUTABLE;
+
+
 /*
 
 DROP FUNCTION IF EXISTS public.rc_FindClosestPoint_trans( incoming_state int[], result int[] ) CASCADE;
@@ -494,38 +577,6 @@ $BODY$
   
 
 
-
-
-
-
-DROP FUNCTION IF EXISTS public.rc_P(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
---OUT x_bm INT, OUT y_bm INT, 
-OUT distance INT);
-CREATE OR REPLACE FUNCTION public.rc_P(x DOUBLE PRECISION, y DOUBLE PRECISION,tree_level INT, tot_tree_level INT, x_bf int,  y_bf int, OUT x_bl INT, OUT y_bl INT, 
---OUT x_bm INT, OUT y_bm INT, 
-OUT distance INT)
-AS
-$BODY$
---function giving the maximim length bit representation of points
-DECLARE
-x_bm int;
-y_bm int;
-BEGIN
-	--x_bf :=(          ( x-min_x)*2^tot_tree_level / (max_x-min_x)      )::int;
-	--y_bf :=(          ( y-min_y)*2^tot_tree_level / (max_y-min_y)      )::int;
-
-	x_bl := x_bf - x_bf%(2^(tot_tree_level-tree_level))::int;
-	y_bl := y_bf - y_bf%(2^(tot_tree_level-tree_level))::int;
-	
-	x_bm :=( x_bl + 2^(tot_tree_level-tree_level-1))::int;
-	y_bm :=( y_bl + 2^(tot_tree_level-tree_level-1))::int;
-	
-	distance := GREATEST(@(x_bf-x_bm),@(y_bf-y_bm) );
-	
-	RETURN;	
-END;
-$BODY$
-  LANGUAGE plpgsql IMMUTABLE;
 
 
 

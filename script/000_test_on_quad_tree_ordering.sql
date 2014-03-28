@@ -158,25 +158,39 @@
 
 
 
-DROP FUNCTION IF EXISTS public.rc_ExplodeN_numbered( a_patch PCPATCH , n bigint);
-		CREATE OR REPLACE FUNCTION  public.rc_ExplodeN_numbered( a_patch PCPATCH , n bigint)
-		RETURNS table(num bigint , point pcpoint ) AS
+DROP FUNCTION IF EXISTS public.rc_ExplodeN_numbered( a_patch PCPATCH , n bigint );
+		CREATE OR REPLACE FUNCTION  public.rc_ExplodeN_numbered( a_patch PCPATCH , n bigint  DEFAULT -1)
+		RETURNS table(point pcpoint ,ordinality bigint ) AS
 		$BODY$
-		--this function is a wrapper around pc_explode to limit the number of points it returns	
+		--@brief this function is a wrapper around pc_explode to limit the number of points it returns, and order the point bu the order of extraction
+		--@param : the pcpatch to explode into points
+		--@param : the maximum of points we want. If negativ, all points are returned. If bigger than point number, all points are returned
+		--@return : the first min(n,pc_numpoint(patch)) points from the patch with there ordinality. NOTE : if n negativ, everything is returned
 		DECLARE
+		_np BIGINT;
 		BEGIN
+			_np:=PC_NumPoints(a_patch);
+			IF n >_np OR n<0 THEN 
+				n:=_np;
+			END IF;
+			
 			RETURN QUERY 
-				SELECT generate_series(1, n), PC_Explode(a_patch)
+				SELECT PC_Explode(a_patch), generate_series(1, n)
 				LIMIT n;
 		return;
 		END;
+
+		--test : 
+			--SELECT rc.*
+			--FROM acquisition_tmob_012013.riegl_pcpatch_space,public.rc_ExplodeN_numbered(patch,-100) AS rc
+			--WHERE gid=120;
 		$BODY$
 		LANGUAGE plpgsql STRICT VOLATILE;
 
 
-SELECT public.rc_ExplodeN_numbered(patch, 10)
-	FROM acquisition_tmob_012013.riegl_pcpatch_space
-	WHERE gid=120;
+	--SELECT rc.*
+	--FROM acquisition_tmob_012013.riegl_pcpatch_space,public.rc_ExplodeN_numbered(patch,-100) AS rc
+	--WHERE gid=120;
 
 
 
