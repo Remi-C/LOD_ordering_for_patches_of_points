@@ -92,6 +92,7 @@
 --
 ------------------------------
 
+SET search_path to lod, public ; 
 
 
 	DROP FUNCTION IF EXISTS public.rc_OrderByQuadTree( pointsTable regclass, tot_tree_level INT,OUT result_per_level int[]);
@@ -135,13 +136,14 @@
 				FROM %I
 				WHERE lev>=%s OR lev IS NULL;
 				',pointsTable,i) INTO _max_num_points_in_next_level;
-			--	RAISE NOTICE 'points remaining : %, level : %',_max_num_points_in_next_level,i;
+				--RAISE NOTICE 'points remaining : %, level : %',_max_num_points_in_next_level,i;
 
 				IF _max_num_points_in_next_level <power(2, i-1) THEN
 					--no need to compute : there won't be enough points in the next level
 					EXIT;
 				END IF;
 
+				
 				--computing the ordering for the current tree level 
 				_q := format('
 					WITH the_order AS (
@@ -179,9 +181,11 @@
 
 					result_per_level[i+1]:=_pts_nb_in_current_level;
 				--_pts_nb_in_current_level := 
+
+			--EXIT ; --@DEBUG : stopping on first level
 			END LOOP; -- loop on all tree level
 
-			EXECUTE format('UPDATE %I SET (lev,ord) = (NULL,NULL) WHERE lev= %s',pointsTable,_end_indice);
+			--EXECUTE format('UPDATE %I SET (lev,ord) = (NULL,NULL) WHERE lev= %s',pointsTable,_end_indice);
 			
 			ReTURN ;
 			
@@ -191,11 +195,11 @@
 		$BODY$
 		LANGUAGE plpgsql STRICT VOLATILE;
 
-		SELECT    public.rc_OrderByQuadTree( 'test_order_index_points'::regclass , 12);
+		SELECT    public.rc_OrderByQuadTree( 'temp_ordering_patch'::regclass , 12);
 
 		SELECT *
 		FROM test_order_index_points
-		oRDER BY lev DESC 
+		oRDER BY lev DESC ; 
 
 /*
 
@@ -234,8 +238,9 @@
 				_q := _q || format('
 					, selected AS (
 						SELECT
-							--first_value(oid) OVER (PARTITION BY (f).x_bl, (f).y_bl ORDER BY (f).distance ASC, oid ASC) AS selected_id
-							(rc_FindClosestPoint(ARRAY[oid::int,(f).distance]))[1] AS selected_id 
+							--first_value(oid) OVER (PARTITION BY ((f).x_bl/2)::INT, ((f).y_bl/2)::int ORDER BY (f).distance ASC, oid ASC) AS selected_id
+							--(rc_FindClosestPoint(ARRAY[oid::int,(f).distance]))[1] AS selected_id 
+							first(oid ORDER BY (f).distance ASC, oid ASC )   AS selected_id
 						FROM prep_for_comp, quad_tree_level AS qtl
 						GROUP BY (f).x_bl::bit(%s), (f).y_bl::bit(%s)
 					)
@@ -259,9 +264,9 @@
 			--testing_lod_2
 			DROP TABLE IF EXISTS public.test_order_index_result;
 			CREATE table public.test_order_index_result AS
-				SELECT f.oid[1],f.oid[2] ord , toip.noisy_point, toip.geom
-				FROM public.rc_OrderByQuadTreeL( pointsTable:='test_order_index_points',tree_level:=6,tot_tree_level:=6) f(oid)
-				LEFT OUTER JOIN test_order_index_points toip ON (toip.oid= f.oid[1])
+				SELECT f.oid[1],f.oid[2] ord --, toip.noisy_point, toip.geom
+				FROM public.rc_OrderByQuadTreeL( pointsTable:='temp_ordering_patch',tree_level:=6,tot_tree_level:=6) f(oid)
+				LEFT OUTER JOIN temp_ordering_patch toip ON (toip.oid= f.oid[1])
 
 				--sur 100k points
 				--sans rien : 3.2sec
@@ -319,8 +324,10 @@ BEGIN
 	UPDATE %I SET 
 		x_bf_%s =  (     ( x-min_x)*2^%s / CASE  (max_x-min_x) WHEN 0 THEN 1 ELSE  (max_x-min_x) END      )::int 
 		, y_bf_%s = (     ( y-min_y)*2^%s /CASE  (max_y-min_y) WHEN 0 THEN 1 ELSE  (max_y-min_y) END   )::int 
+		, x=  x *2^%s 
+		,y = y *2^%s 
 		FROM min;'
-		,points_table,points_table,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level
+		,points_table,points_table,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level
 		);
 	--dafulat behavior : if column already exist, update x_bf and y_bf value
 	EXECUTE _q;
@@ -342,7 +349,7 @@ $BODY$
 	
 
 */
-/*
+ /*
 
 DROP FUNCTION IF EXISTS public.rc_FindClosestPoint_trans( incoming_state int[], result int[] ) CASCADE;
 CREATE OR REPLACE FUNCTION public.rc_FindClosestPoint_trans( incoming_state int[], result int[] )
@@ -418,7 +425,7 @@ $BODY$
   LANGUAGE plpgsql STRICT IMMUTABLE;
 
   SELECT  rc_FindClosestPoint_trans(1,1);
-
+*/
 
 		/* --TEST 
 		--we try to replace the min max by a custom aggregate function computing both at the same time. Unfortunately is is slower in plpgsql , would need a try in C
@@ -521,8 +528,9 @@ BEGIN
 	y_bm :=( y_bl + 2^(tot_tree_level-tree_level-1))::int;
 	
 	--distance := GREATEST(@(x_bf-x_bm),@(y_bf-y_bm) ); --changed the distance definition
-	distance := (@(x_bf-x_bm))+(@(y_bf-y_bm) );
-	
+	--distance := (@(x_bf-x_bm))+(@(y_bf-y_bm) );
+	distance:=( sqrt((@(x-x_bm))^2+(@(y-y_bm) )^2))::int ; 
+		--RAISE NOTICE 'x_bf:% , x_bl:%, x_bm:%',x_bf::bit(8),x_bl::bit(8), x_bm::bit(8);
 	RETURN;	
 END;
 $BODY$
