@@ -102,7 +102,7 @@
 --
 ------------------------------
 
-
+SET search_path to lod, public ;
 
 	DROP FUNCTION IF EXISTS public.rc_OrderByOcTree( pointsTable regclass, tot_tree_level INT,OUT result_per_level int[]);
 		CREATE OR REPLACE FUNCTION public.rc_OrderByOcTree( pointsTable regclass, tot_tree_level INT, OUT result_per_level int[])
@@ -191,7 +191,7 @@
 				--_pts_nb_in_current_level := 
 			END LOOP; -- loop on all tree level
 
-			EXECUTE format('UPDATE %I SET (lev,ord) = (NULL,NULL) WHERE lev= %s',pointsTable,_end_indice);
+			--EXECUTE format('UPDATE %I SET (lev,ord) = (NULL,NULL) WHERE lev= %s',pointsTable,_end_indice);
 			
 			ReTURN ;
 			
@@ -243,7 +243,8 @@
 					, selected AS (
 						SELECT
 							--first_value(oid) OVER (PARTITION BY (f).x_bl, (f).y_bl, (f).z_bl ORDER BY (f).distance ASC, oid ASC) AS selected_id
-							(rc_FindClosestPoint(ARRAY[oid::int,(f).distance]))[1] AS selected_id 
+							--(rc_FindClosestPoint(ARRAY[oid::int,(f).distance]))[1] AS selected_id 
+							first(oid ORDER BY (f).distance ASC, oid ASC )   AS selected_id
 						FROM prep_for_comp, quad_tree_level AS qtl
 						GROUP BY (f).x_bl::bit(%s), (f).y_bl::bit(%s), (f).z_bl::bit(%s)
 					)
@@ -331,9 +332,12 @@ BEGIN
 	UPDATE %I SET 
 		x_bf_%s =  (     ( x-min_x)*2^%s / CASE  (max_x-min_x) WHEN 0 THEN 1 ELSE  (max_x-min_x) END      )::int 
 		, y_bf_%s = (     ( y-min_y)*2^%s /CASE  (max_y-min_y) WHEN 0 THEN 1 ELSE  (max_y-min_y) END   )::int 
-		,z_bf_%s = (     ( z-min_z)*2^%s /CASE  (max_z-min_z) WHEN 0 THEN 1 ELSE  (max_z-min_z) END   )::int 
+		,z_bf_%s = (     ( z-min_z)*2^%s /CASE  (max_z-min_z) WHEN 0 THEN 1 ELSE  (max_z-min_z) END  )::int
+		,x = x*2^%s
+		,y = y*2^%s
+		,z = z*2^%s
 		FROM min;'
-		,points_table,points_table,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level
+		,points_table,points_table,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level,tot_tree_level
 		);
 	--dafulat behavior : if column already exist, update x_bf and y_bf value
 	EXECUTE _q;
@@ -379,7 +383,8 @@ BEGIN
 	y_bm :=( y_bl + 2^(tot_tree_level-tree_level-1))::int;
 	z_bm :=( z_bl + 2^(tot_tree_level-tree_level-1))::int;
 	
-	distance := GREATEST(@(x_bf-x_bm),@(y_bf-y_bm),@(z_bf-z_bm) );
+	--distance := GREATEST(@(x_bf-x_bm),@(y_bf-y_bm),@(z_bf-z_bm) );
+	distance := sqrt( (x-x_bm)^2+(y-y_bm)^2+(z-z_bm)^2 )::int;
 	
 	RETURN;	
 END;

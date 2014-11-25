@@ -50,7 +50,9 @@ DROP FUNCTION IF EXISTS public.rc_OrderPatchByQuadTree( a_patch PCPATCH , tot_tr
 						FROM PC_Explode(a_patch) AS points 
 						--LIMIT 100
 					)
-					SELECT oid,  (ST_X(points)- x_min)/x_r  AS x,  (ST_Y(points) - y_min)/y_r AS y --we center/scale to 0,1, then scale to tree width
+					SELECT oid
+						, (ST_X(points)- x_min)/x_r  AS x
+						, (ST_Y(points) - y_min)/y_r AS y --we center/scale to 0,1, then scale to tree width
 					FROM points,min_max;
 			--order this points by quad tree
 
