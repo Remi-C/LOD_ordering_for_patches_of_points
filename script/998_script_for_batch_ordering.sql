@@ -12,9 +12,9 @@ SELECT max(gid)
 FROM acquisition_tmob_012013.riegl_pcpatch_space
 
 DECLARE @I,@S ;
-SET @I=0;
+SET @I=100000;
 SET @S = 10;--10
-WHILE @I < 100000-- 5473129
+WHILE @I <  5473129
 BEGIN 
 	UPDATE  acquisition_tmob_012013.riegl_pcpatch_space as rps
 	SET (patch,points_per_level) = ( nv.o_patch, nv.result_per_level)
@@ -26,7 +26,7 @@ BEGIN
 			AND gid%2 = 0
 			AND pc_numpoints(patch) > 100
 		) as nv
-		WHERE nv.gid  = rps.gid ;
+		WHERE nv.gid  = rps.gid ; 
 	SET @I = @I + @S ; 
 END
 

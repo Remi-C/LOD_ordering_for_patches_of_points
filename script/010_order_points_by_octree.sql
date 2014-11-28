@@ -378,10 +378,17 @@ BEGIN
 	x_bl := x_bf - x_bf%(2^(tot_tree_level-tree_level))::int;
 	y_bl := y_bf - y_bf%(2^(tot_tree_level-tree_level))::int;
 	z_bl := z_bf - z_bf%(2^(tot_tree_level-tree_level))::int;
+
 	
-	x_bm :=( x_bl + 2^(tot_tree_level-tree_level-1))::int;
-	y_bm :=( y_bl + 2^(tot_tree_level-tree_level-1))::int;
-	z_bm :=( z_bl + 2^(tot_tree_level-tree_level-1))::int;
+	x_bm :=CASE WHEN ( x_bl + 2^(tot_tree_level-tree_level-1))::int > 2^tot_tree_level 
+		THEN ( x_bl - 2^(tot_tree_level-tree_level-1))::int 
+		ELSE  ( x_bl + 2^(tot_tree_level-tree_level-1))::int END ;
+	y_bm :=CASE WHEN ( y_bl + 2^(tot_tree_level-tree_level-1))::int > 2^tot_tree_level 
+		THEN ( y_bl - 2^(tot_tree_level-tree_level-1))::int 
+		ELSE  ( y_bl + 2^(tot_tree_level-tree_level-1))::int END ;
+	z_bm :=CASE WHEN ( z_bl + 2^(tot_tree_level-tree_level-1))::int > 2^tot_tree_level 
+		THEN ( z_bl - 2^(tot_tree_level-tree_level-1))::int 
+		ELSE  ( z_bl + 2^(tot_tree_level-tree_level-1))::int END ; 
 	
 	--distance := GREATEST(@(x_bf-x_bm),@(y_bf-y_bm),@(z_bf-z_bm) );
 	distance := sqrt( (x-x_bm)^2+(y-y_bm)^2+(z-z_bm)^2 )::int;

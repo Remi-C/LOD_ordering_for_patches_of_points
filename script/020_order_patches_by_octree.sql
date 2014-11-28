@@ -120,6 +120,48 @@ DROP FUNCTION IF EXISTS public.rc_OrderPatchByOcTree( a_patch PCPATCH , tot_tree
 					 p.gid = 178749 ;  --big patch
 					-- p.gid = 364966 --big patch problematic
 
+		DROP TABLE IF EXISTS temp_visu_patch;
+		CREATE TABLE  temp_visu_patch AS 
+			SELECT    n.ordinality, n.point::geometry , r.result_per_level
+			FROM acquisition_tmob_012013.riegl_pcpatch_space as p
+				, public.rc_OrderPatchByOcTree( p.patch , 6) as r 
+				, rc_exploden_numbered(r.o_patch,-1) AS n
+			WHERE --p.gid = 368290; --small patch
+					 p.gid = 178749 ;  --big patch
+					-- p.gid = 364966 --big patch problematic
+
+		SELECT sum(PC_NumPoints(patch))
+		FROM acquisition_tmob_012013.riegl_pcpatch_space as p
+		WHERE p.gid BETWEEN 0 AND 10000
+
+
+
+--SELECT pg_stat_reset();
+
+SELECT funcname,calls, total_time/1000.0 AS total_time, self_time/1000.0 AS self_time, sum(self_time/1000.0) OVER (order by self_time DESC) As cum_self_time
+FROM pg_stat_user_functions
+ORDER BY  -- total_time DESC  ,
+	self_time DESC; 
+
+	
+COPY  (
+  WITH area AS (
+		  SELECT ST_Centroid(patch::geometry) as geom
+		FROM acquisition_tmob_012013.riegl_pcpatch_space as p1 
+		WHERE p1.gid = 300354
+		LIMIT 1 
+		  ) 
+ SELECT pc_get(pt,'x') AS x, pc_get(pt,'y') AS y,pc_get(pt,'z') AS z, pc_get(pt,'reflectance') as reflectance,pc_get(pt,'gps_time') as gps_time ,  ord,gid  
+		FROM area, acquisition_tmob_012013.riegl_pcpatch_space as p,  public.rc_OrderPatchByOcTree( p.patch , 7) as r,  rc_ExplodeN_numbered(r.o_patch, -1) as f(ord,pt) 
+		WHERE ST_DWithin(p.patch::geometry, area.geom, 5) = TRUE
+
+
+) TO '/media/sf_E_RemiCura/DATA/test_order_index_points_octree_old_tech.csv'-- '/tmp/temp_pointcloud_lod.csv'
+WITH csv header;
+--4700 sec
+--for 53 137 909 points 
+-- 11k pts/sec
+rc_ExplodeN_numbered
 
 -- 		SELECT gid, PC_NUmPoints(patch) as num
 -- 		FROM acquisition_tmob_012013.riegl_pcpatch_space as p
@@ -129,12 +171,12 @@ DROP FUNCTION IF EXISTS public.rc_OrderPatchByOcTree( a_patch PCPATCH , tot_tree
 -- 		
 
 ------cum sum
--- 			WITH pow AS (
--- 				SELECT s,power(4,s) as pow
--- 				FROM generate_series(0,8) s
--- 			)
--- 			SELECT s,pow,sum(pow) over(order by s)
--- 			FROM pow;
+			WITH pow AS (
+				SELECT s,power(4,s) as pow
+				FROM generate_series(0,8) s
+			)
+			SELECT s,pow,sum(pow) over(order by s)
+			FROM pow;
 ----------------
 
 -- 			WITH pow AS (
