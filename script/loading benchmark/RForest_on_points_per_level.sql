@@ -308,6 +308,7 @@ for name, group in grouped_proba :
 	g2['result_prediction'] =100*g2.cum_sum/( g2.new_index*len(g2) )
 	g2['x_axis'] =1- g2['proba_chosen']  ;
 
+
 	plt.clf()
 	plt.cla()
 	plt.close() 
@@ -334,7 +335,7 @@ for name, group in grouped_proba :
 plt.clf()
 plt.close() ;
 plt.cla ;
-cm = confusion_matrix(g2['ground_truth_class'], g2['class_chosen']) 
+cm = confusion_matrix(result['ground_truth_class'], result['class_chosen']) 
 cm = cm * 1.0 ;
 preprocessing.normalize(cm, norm='l1', axis=0,copy=False)
 plpy.notice(cm); 
@@ -347,6 +348,10 @@ ax.set_xticklabels([''] + list(labels[clf.classes_]['class_name']) )
 ax.set_yticklabels([''] + list(labels[clf.classes_]['class_name']) )
 plt.xlabel('Predicted')
 plt.ylabel('True') 
+for i, cas in enumerate(cm):
+	for j, c in enumerate(cas):
+		if c>0:
+			plt.text(j-.2, i+.2, str(round(c, 3)), fontsize=12)
 plt.savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_confusion_matrix_.png')
 plt.clf()
 plt.cla()

@@ -172,7 +172,7 @@ rc_ExplodeN_numbered
 
 ------cum sum
 			WITH pow AS (
-				SELECT s,power(4,s) as pow
+				SELECT s,power(8,s) as pow
 				FROM generate_series(0,8) s
 			)
 			SELECT s,pow,sum(pow) over(order by s)

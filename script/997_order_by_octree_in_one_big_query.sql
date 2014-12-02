@@ -404,3 +404,10 @@ CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[4]) );
 CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[5]) ); 
 CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[6]) ); 
 CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[7]) ); 
+
+
+SELECT count(*)
+FROM riegl_pcpatch_space_proxy  
+WHERE --points_per_level IS   NULL AND 
+num_points >=30
+AND num_points <= 100

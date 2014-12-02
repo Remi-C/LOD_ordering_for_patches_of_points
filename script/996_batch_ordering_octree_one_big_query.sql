@@ -12,7 +12,7 @@ SELECT max(gid)
 FROM benchmark_cassette_2013.riegl_pcpatch_space
 
 DECLARE @I,@S ;
-SET @I=0;
+SET @I=800;
 SET @S =50 ; 
 WHILE @I <= 473129  
 BEGIN 
@@ -52,3 +52,61 @@ BEGIN
  
 	SET @I = @I + @S ; 
 END
+
+
+
+
+
+DECLARE @I,@S ;
+SET @I=800;
+SET @S =50 ; 
+WHILE @I < 6000 -- 5473129
+BEGIN  
+	
+	UPDATE benchmark_cassette_2013.riegl_pcpatch_space SET  (patch_height,height_above_laser,patch_area,reflectance_avg,nb_of_echo_avg) = 
+		(COALESCE( round(PC_PatchMax(patch, 'Z')-PC_PatchMin(patch, 'Z'),3),0)  
+		,  COALESCE( round(PC_PatchMin(patch, 'Z')-PC_PatchAvg(patch, 'z_origin') ,3),0 )  
+		, COALESCE(round(rc_pcpatch_real_area_N(patch,85,0.06,0.2)::numeric,3),0)  
+		,  COALESCE( round(PC_PatchAvg(patch, 'reflectance'),3),0 ) 
+		,  COALESCE( round(PC_PatchAvg(patch, 'nb_of_echo') ,3),0)   ) 
+	WHERE dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL 
+		AND  gid BETWEEN @I AND @I+@S  ;
+ 
+	SET @I = @I + @S ; 
+END
+
+
+SELECT min(gid),max(gid)
+FROM acquisition_tmob_012013.riegl_pcpatch_space
+WHERE dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL ;
+
+
+DECLARE @I,@S ;
+SET @I=250000;
+SET @S =100 ; 
+WHILE @I < 300000 -- 5473129
+BEGIN  
+	
+	UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET  (patch_height,height_above_laser ,reflectance_avg,nb_of_echo_avg,patch_area) 
+		= 
+	 ( nv.patch_height,nv.height_above_laser ,nv.reflectance_avg,nv.nb_of_echo_avg,nv.patch_area)
+	 FROM (
+		SELECT gid, r.*, COALESCE(round(rc_pcpatch_real_area_N(patch,85,0.06,0.2)::numeric,3),0)  as patch_area
+		FROM acquisition_tmob_012013.riegl_pcpatch_space  , rc_pcpatch_compute_crude_descriptors(patch ) AS r
+		WHERE dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL 
+			AND gid BETWEEN @I AND @I+@S
+		 ) AS nv
+	WHERE nv.gid = riegl_pcpatch_space.gid ; 
+	SET @I = @I + @S ; 
+END
+
+
+
+UPDATE benchmark_cassette_2013.riegl_pcpatch_space SET  (patch_height,height_above_laser ,reflectance_avg,nb_of_echo_avg,patch_area) = 
+ ( nv.patch_height,nv.height_above_laser ,nv.reflectance_avg,nv.nb_of_echo_avg,nv.patch_area)
+ FROM (
+SELECT gid, r.*, COALESCE(round(rc_pcpatch_real_area_N(patch,85,0.06,0.2)::numeric,3),0)  as patch_area
+FROM acquisition_tmob_012013.riegl_pcpatch_space  , rc_pcpatch_compute_crude_descriptors(patch ) AS r
+	WHERE dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL 
+	AND gid = 1125 ) AS nv
+	WHERE nv.gid = riegl_pcpatch_space.gid
