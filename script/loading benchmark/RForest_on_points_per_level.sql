@@ -303,21 +303,25 @@ for name, group in grouped_proba :
 
 	g2['cum_sum'] =g2.is_correct.cumsum() 
 	g2['result_prediction'] =100*g2.cum_sum/( g2.new_index*len(g2) )
-	plot = g2.plot(x='new_index', y= 'result_prediction',ylim=[-10,110], title="using prediction by descending confidence", )
-	labx = plt.xlabel("number_of_observations")
+	g2['x_axis'] =1- g2['proba_chosen']  ;
+	plot = g2.plot(x='x_axis', y= 'result_prediction',ylim=[-10,110], title="using prediction by descending confidence for class "+str(int(name))  )
+	labx = plt.xlabel("1-minimal_confidence")
 	laby = plt.ylabel("precision_of_prediction")
 	plt.axhline(y=g2['result_prediction'].mean(), label='mean_line')
+	#plt.plot(x=g2['x_axis'],y=100*g2['new_index']/len(g2))
 	#title = title("using prediction by descending confidence")
 	#ylim = ylim([-10,110]) 
-	save  = plt.savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_'+str(int(name)) +'_.jpg')
-	plt.close()
-	  
-
+	save  = plt.savefig(
+		'/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_'
+		+ str(int( np.amax(clf.classes_)))
+		+'_against_all_'
+		+str(int(name)) 
+		+'_.jpg')
+	plt.close() 
 
 to_be_returned = np.column_stack(((np.trunc(mean_result.to_records(index=True)["class_chosen"])).astype(int),mean_result.to_records(index=True)["is_correct"] ))
 plpy.notice(type(to_be_returned));
 return to_be_returned.tolist();
- 
 $$ LANGUAGE plpythonu IMMUTABLE STRICT; 
 
 	 
