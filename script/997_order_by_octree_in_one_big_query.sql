@@ -100,18 +100,19 @@ DROP FUNCTION IF EXISTS rc_compute_centers( x int, y int, z int ,   cur_lev int 
 		, OUT z_o int)  
 	AS $$ 
 	DECLARE 
+		the_pow real := (2^(tot_lev-cur_lev));
 	BEGIN  
-		x_o := CASE WHEN (  (x/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) + 2^(tot_lev-cur_lev -1 ) )::int  >2^tot_lev 
-			THEN  ((x/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) - 2^(tot_lev-cur_lev -1 ) )::int
-			ELSE  (  (x/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) + 2^(tot_lev-cur_lev -1 ) )::int
+		x_o := CASE WHEN (  (x/(the_pow))::int   * the_pow + the_pow/2.0  )::int  >2^tot_lev 
+			THEN  ((x/(the_pow))::int   * the_pow - the_pow/2.0 )::int
+			ELSE  (  (x/(the_pow))::int   * the_pow +the_pow/2.0 )::int
 			END  ; 
-		y_o := CASE WHEN (  (y/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) + 2^(tot_lev-cur_lev -1 ) )::int  >2^tot_lev 
-			THEN  ((y/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) - 2^(tot_lev-cur_lev -1 )  )::int
-			ELSE  (  (y/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) + 2^(tot_lev-cur_lev -1 ) )::int
+		y_o := CASE WHEN (  (y/(the_pow))::int   * the_pow + the_pow/2.0 )::int  >2^tot_lev 
+			THEN  ((y/(the_pow))::int   * the_pow - the_pow/2.0  )::int
+			ELSE  (  (y/(the_pow))::int   * the_pow +the_pow/2.0 )::int
 			END  ; 
-		z_o := CASE WHEN (  (z/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) + 2^(tot_lev-cur_lev -1 ) )::int  >2^tot_lev 
-		THEN  ((z/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) - 2^(tot_lev-cur_lev -1 )  )::int
-		ELSE  (  (z/(2^(tot_lev-cur_lev)))::int   * 2^(tot_lev-cur_lev) + 2^(tot_lev-cur_lev -1 ) )::int
+		z_o := CASE WHEN (  (z/(the_pow))::int   * the_pow + the_pow/2.0 )::int  >2^tot_lev 
+		THEN  ((z/(the_pow))::int   * the_pow - the_pow/2.0 )::int
+		ELSE  (  (z/(the_pow))::int   * the_pow + the_pow/2.0 )::int
 		END  ;  
 	RETURN;
 	END;
@@ -182,11 +183,11 @@ DROP FUNCTION IF EXISTS rc_sfunc_find_middle(  rc_middle_type ,  rc_middle_type)
 
 	
 DROP FUNCTION IF EXISTS rc_ffunc_find_middle(  rc_middle_type  ) CASCADE;
-	CREATE OR REPLACE FUNCTION rc_ffunc_find_middle( internal_state rc_middle_type , OUT middle  rc_middle_type)  
+	CREATE OR REPLACE FUNCTION rc_ffunc_find_middle( internal_state rc_middle_type , OUT middle  int)  
 	AS $$ 
 	DECLARE 
 	BEGIN 
-		middle :=internal_state; 
+		middle :=internal_state.cur_mid_oid; 
 	RETURN;
 	END;
 	$$ LANGUAGE plpgsql IMMUTABLE CALLED ON NULL INPUT ;
@@ -308,10 +309,11 @@ DROP FUNCTION IF EXISTS rc_order_octree( ipatch PCPATCH, tot_lev   int[] ) ;
 			)	 	
 			,point AS (
 				SELECT 
-					oid
-					, ((( x - x_min) / CASE WHEN max_r = 0 THEN 1 ELSE max_r END  +0.5) * 2^%s )::int as x
-					, ((( y - y_min) / CASE WHEN max_r = 0 THEN 1 ELSE max_r END  +0.5) * 2^%s )::int as y
-					,( (( z - z_min) / CASE WHEN max_r = 0 THEN 1 ELSE max_r END  +0.5) * 2^%s )::int as z 
+					
+					  ((( x - x_min) / CASE WHEN max_r = 0 THEN 1 ELSE max_r END  +0.5) * pow(2,%s) )::int as x
+					, ((( y - y_min) / CASE WHEN max_r = 0 THEN 1 ELSE max_r END  +0.5) * pow(2,%s) )::int as y
+					,( (( z - z_min) / CASE WHEN max_r = 0 THEN 1 ELSE max_r END  +0.5) * pow(2,%s) )::int as z 
+					,oid 
 				FROM min_max, pt
 			)
 			
@@ -350,7 +352,7 @@ DROP FUNCTION IF EXISTS rc_order_octree( ipatch PCPATCH, tot_lev   int[] ) ;
 		) 
 		SELECT opatch , points_per_level 
 			FROM (
-			SELECT pc_patch(pt ORDER BY cur_lev NULLS LAST, random()) as opatch
+			SELECT pc_patch(pt ORDER BY cur_lev ASC NULLS LAST, random()) as opatch
 			FROM pt
 				LEFT OUTER JOIN ordering on (pt.oid = ordering.oid)
 				)AS sub , 
@@ -372,20 +374,19 @@ DROP FUNCTION IF EXISTS rc_order_octree_lev(   cur_lev  int , tot_lev   int ) CA
 		
 		q := format(' 
 		, agg_%s AS (
-			SELECT (r).curr_mid_value_x AS x, (r).curr_mid_value_y AS y , (r).curr_mid_value_z AS z, (r).cur_mid_oid AS oid, %s AS cur_lev
-			FROM   (
-			SELECT ' , cur_lev, cur_lev); 
+			SELECT  
+			 ' , cur_lev, cur_lev); 
 			IF cur_lev != 0 THEN 
 			q := q ||
-			format('CASE WHEN (1 --SELECT count(*) FROM agg_%s LIMIT 1
-			  ) < pow(4,%s) THEN  (NULL,NULL, NULL, NULL, NULL,NULL,NULL)::rc_middle_type ELSE 
-				rc_find_middle( (pt.x ,pt.y ,pt.z,  x_o  , y_o , z_o ,pt.oid)::rc_middle_type ) END ', cur_lev-1, cur_lev-2 );
+			format('CASE WHEN ( SELECT count(*) FROM agg_%s LIMIT 1
+			  ) < pow(4,%s)/2.0  THEN  NULL ELSE 
+				rc_find_middle( (pt.x ,pt.y ,pt.z,  x_o  , y_o , z_o ,pt.oid)::rc_middle_type ) END AS oid, %s AS cur_lev ', cur_lev-1, cur_lev-1,cur_lev);
 			ELSE q := q 
-			|| 'rc_find_middle( (pt.x ,pt.y ,pt.z,  x_o  , y_o , z_o ,pt.oid)::rc_middle_type ) ' ; 
+				|| format('rc_find_middle( (pt.x ,pt.y ,pt.z,  x_o  , y_o , z_o ,pt.oid)::rc_middle_type ) AS oid,%s AS cur_lev  ',cur_lev) ; 
 			END IF ;
-			q := q ||format(	' AS r 
+			q := q ||format(	' 
 			FROM point as pt, rc_compute_centers(pt.x::int,pt.y::int,pt.z::int,%s,%s) 
-			GROUP BY x_o,y_o,z_o ) as sub
+			GROUP BY x_o,y_o,z_o  
 		)   ', cur_lev, tot_lev); 
 		 RETURN  ;
 	END;
@@ -394,3 +395,12 @@ $$ LANGUAGE plpgsql IMMUTABLE CALLED ON NULL INPUT ;
  SELECT rc_order_octree_lev(4,7) ;
 
 
+
+SET search_path to lod, acquisition_tmob_012013, public;  
+CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[1]) ); 
+CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[2]) ); 
+CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[3]) ); 
+CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[4]) ); 
+CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[5]) ); 
+CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[6]) ); 
+CREATE INDEX ON riegl_pcpatch_space USING btree( (points_per_level[7]) ); 
