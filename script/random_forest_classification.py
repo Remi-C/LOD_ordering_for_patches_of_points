@@ -38,7 +38,7 @@ X = np.column_stack((f1,f2,f3,f4));
 Y = np.array( gt_class) ; 
 
 clf = RandomForestClassifier(n_estimator, verbose=0,criterion="entropy") ; 
-clf = DecisionTreeClassifier(criterion='entropy', splitter='best', max_depth=None, min_samples_split=10, min_samples_leaf=1,   max_features=None, random_state=0.58 ) ; 
+clf = DecisionTreeClassifier(criterion='entropy', splitter='best', max_depth=None, min_samples_split=10, min_samples_leaf=1,   max_features=None, random_state=4 ) ; 
 #clf = clf.fit(X,Y ) ; 
 #  clf = []
 result = []
@@ -63,8 +63,8 @@ for i ,(train, test)  in enumerate(kf_total) :
     max_values = np.amax(tmp_prob,axis=1);
 
     #grouping for score per class
-    proba_class_chosen = np.column_stack( (max_values,chosen_class, chosen_class == Y_test) ) ; 
-    df = pd.DataFrame(proba_class_chosen, columns = ("proba_chosen","class_chosen","is_correct")) ;
+    proba_class_chosen = np.column_stack( (max_values,chosen_class, chosen_class == Y_test,Y_test )) ; 
+    df = pd.DataFrame(proba_class_chosen, columns = ("proba_chosen","class_chosen","is_correct","ground_truth_class") ) ;
     #   group_by_class = df.groupby(["class_chosen"])    
     #    #print group_by_class["class_chosen","is_correct"] 
     #    tmp_result = group_by_class["is_correct"].aggregate(np.mean) 
@@ -91,7 +91,7 @@ for i ,(train, test)  in enumerate(kf_total) :
 
 grouped_result = result.groupby(["class_chosen"])  
 
-grouped_proba = grouped_result['proba_chosen',"is_correct"]
+grouped_proba = grouped_result['proba_chosen',"is_correct","ground_truth_class"]
 for name, group in grouped_proba :
     #print(name)
     #print(group.sort(columns="proba_chosen" ).cumsum() )
@@ -107,7 +107,7 @@ for name, group in grouped_proba :
     ylabel("precision_of_prediction")
     title("using prediction by descending confidence")
     ylim([-10,110]) 
-    savefig('/tmp/test_output_'+str(name) +'_.pdf')
+    savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_'+str(name) +'_.png')
     close() 
 
 g2[['new_index','proba_chosen','is_correct','result_prediction']]
@@ -117,8 +117,57 @@ ylabel("precision_of_prediction")
 title("using prediction by descending confidence")
 ylim([0,100]) 
 savefig('/tmp/test_output.pdf')
+close();
 
+ 
 
+labels=  np.zeros(6, dtype={'names':['class_id', 'class_name'], 'formats':['i4','a10']}) 
+labels[clf.classes_]['class_name']
+labels[:] =  [(0,"undef" ),(1,"other"),(2,"ground"),(3,"object"),(4,"building"),(5,"vegetation")] 
+labels['class_name']
+
+labels_df = pd.DataFrame.from_records(labels, index = 'class_id' ) ; 
+labels_gt = labels_df.rename(columns={'class_name': 'ground_truth_class_name'} ) 
+labels_chosen = labels_df.rename(columns={'class_name': 'chosen_class_name'} )
+g2 = g2.join(labels_gt, on = 'ground_truth_class')
+g2 = g2.join(labels_chosen, on = 'class_chosen')
+ 
+ 
+classes_used = np.array(clf.classes_,dtype=[('class_id', np.int_) ])
+ type(clf.classes_)
+ 
+classes_used_df = pd.DataFrame(clf.classes_ ) 
+classes_used_df.columns = ['class_id'] ;
+classes_used_df = classes_used_df.set_index('class_id')
+
+cm = confusion_matrix(g2['ground_truth_class'], g2['class_chosen']) 
+fig = plt.figure()
+ax = fig.add_subplot(111)
+cax = ax.matshow(cm)
+plt.title('Confusion matrix of the classifier')
+fig.colorbar(cax)
+ax.set_xticklabels([''] + list(labels[clf.classes_]['class_name']) )
+ax.set_yticklabels([''] + list(labels[clf.classes_]['class_name']) )
+plt.xlabel('Predicted')
+plt.ylabel('True')
+fig.show()
+plt.savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_confusion_matrix_.png')
+plt.close();
+
+cm = confusion_matrix(y_test, pred, labels)
+print(cm)
+
+cax = ax.matshow(cm)
+pl.title('Confusion matrix of the classifier')
+fig.colorbar(cax)
+ax.set_xticklabels([''] + labels)
+ax.set_yticklabels([''] + labels)
+pl.xlabel('Predicted')
+pl.ylabel('True')
+pl.show()
+
+ 
+ 
 print group.sort(columns="proba_chosen",ascending=False ); 
 .rank(method='min')
 mean_result  = grouped_result.aggregate(np.mean) ;   

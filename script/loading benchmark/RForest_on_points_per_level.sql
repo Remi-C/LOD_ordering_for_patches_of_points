@@ -243,12 +243,15 @@ from sklearn import cross_validation,preprocessing ;
 import pandas as pd; 
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier;
+from sklearn.metrics import confusion_matrix
 
 
 ##########
 #parameters
 k_folds = kfold ; # for cross validation. Learn on 9/K_folds, test on 1/KFolds
 random_forest_trees = tree_number ; # how much trees in the forest
+labels=  np.zeros(6, dtype={'names':['class_id', 'class_name'], 'formats':['i4','a10']})  
+labels[:] =  [(0,"undef" ),(1,"other"),(2,"ground"),(3,"object"),(4,"building"),(5,"vegetation")]  
 ##########
 
 #agglomering each array to get a nice numpy array of features
@@ -281,8 +284,8 @@ for i ,(train, test)  in enumerate(kf_total) :
 	max_values = np.amax(tmp_prob,axis=1);
 
 	#grouping for score per class
-	proba_class_chosen = np.column_stack( (max_values,chosen_class, chosen_class == Y_test) ) ; 
-	df = pd.DataFrame(proba_class_chosen, columns = ("proba_chosen","class_chosen","is_correct")) ; 
+	proba_class_chosen = np.column_stack( (max_values,chosen_class, chosen_class == Y_test,Y_test ) ) ; 
+	df = pd.DataFrame(proba_class_chosen, columns = ("proba_chosen","class_chosen","is_correct","ground_truth_class" )) ; 
 	print i ; 
 	if i == 0 :
 		result = df;
@@ -293,7 +296,7 @@ for i ,(train, test)  in enumerate(kf_total) :
     
 grouped_result = result.groupby(["class_chosen"])   
 mean_result  = grouped_result.aggregate(np.mean) ;   
-grouped_proba = grouped_result['proba_chosen',"is_correct"]
+grouped_proba = grouped_result['proba_chosen',"is_correct","ground_truth_class"]
 for name, group in grouped_proba :
 	#print(name)
 	#print(group.sort(columns="proba_chosen" ).cumsum() )
@@ -304,6 +307,11 @@ for name, group in grouped_proba :
 	g2['cum_sum'] =g2.is_correct.cumsum() 
 	g2['result_prediction'] =100*g2.cum_sum/( g2.new_index*len(g2) )
 	g2['x_axis'] =1- g2['proba_chosen']  ;
+
+	plt.clf()
+	plt.cla()
+	plt.close() 
+	
 	plot = g2.plot(x='x_axis', y= 'result_prediction',ylim=[-10,110], title="using prediction by descending confidence for class "+str(int(name))  )
 	labx = plt.xlabel("1-minimal_confidence")
 	laby = plt.ylabel("precision_of_prediction")
@@ -316,8 +324,33 @@ for name, group in grouped_proba :
 		#+ str(int( np.amax(clf.classes_)))
 		#+'_against_all_'
 		+str(int(name)) 
-		+'_.jpg')
+		+'_.jpg') ; 
+	
+	plt.clf()
+	plt.cla()
 	plt.close() 
+
+
+plt.clf()
+plt.close() ;
+plt.cla ;
+cm = confusion_matrix(g2['ground_truth_class'], g2['class_chosen']) 
+cm = cm * 1.0 ;
+preprocessing.normalize(cm, norm='l1', axis=0,copy=False)
+plpy.notice(cm); 
+fig = plt.figure()
+ax = fig.add_subplot(111)
+cax = ax.matshow(cm,cmap = plt.get_cmap('YlOrBr'),vmin=0, vmax=1) 
+plt.title('Confusion matrix of the classifier')
+fig.colorbar(cax, cmap = plt.get_cmap('YlOrBr') )
+ax.set_xticklabels([''] + list(labels[clf.classes_]['class_name']) )
+ax.set_yticklabels([''] + list(labels[clf.classes_]['class_name']) )
+plt.xlabel('Predicted')
+plt.ylabel('True') 
+plt.savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_confusion_matrix_.png')
+plt.clf()
+plt.cla()
+plt.close() 
 
 to_be_returned = np.column_stack(((np.trunc(mean_result.to_records(index=True)["class_chosen"])).astype(int),mean_result.to_records(index=True)["is_correct"] ))
 plpy.notice(type(to_be_returned));
