@@ -12,8 +12,8 @@ SELECT max(gid)
 FROM acquisition_tmob_012013.riegl_pcpatch_space
 
 DECLARE @I,@S ;
-SET @I=100000;
-SET @S = 10;--10
+SET @I=300000;
+SET @S = 100;--10
 WHILE @I <  5473129
 BEGIN 
 	UPDATE  acquisition_tmob_012013.riegl_pcpatch_space as rps
