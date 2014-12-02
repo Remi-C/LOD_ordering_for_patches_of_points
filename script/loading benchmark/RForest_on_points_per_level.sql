@@ -417,47 +417,43 @@ CREATE INDEX ON vegetation_pointcloud (gid);
 
 --now, new query using both data set
 
-WITH patch_to_use AS (
-		 SELECT gid ,'bench' AS src 
-			,points_per_level
-			, dominant_simplified_class 
-			,proba_occurency 
-		 FROM benchmark_cassette_2013.riegl_pcpatch_space 
-		WHERE points_per_level IS NOT NULL
-			AND dominant_simplified_class IS NOT NULL
-		 UNION ALL
-		 SELECT gid  ,'tmob' AS src
-			,points_per_level
-			, dominant_simplified_class 
-			,proba_occurency 
-		 FROM acquisition_tmob_012013.riegl_pcpatch_space 
-		 WHERE points_per_level IS NOT NULL  
-			AND dominant_simplified_class IS NOT NULL
-)
-,count_per_class as (
-	SELECT dominant_simplified_class , count(*)
-	FROM  patch_to_use
-		WHERE (dominant_simplified_class=5 AND random() <0.90) = false
-			AND (dominant_simplified_class=4 AND random() <0.83) = false
-	GROUP BY dominant_simplified_class
+	WITH patch_to_use AS (
+			 SELECT gid ,'bench' AS src  ,points_per_level , dominant_simplified_class  ,proba_occurency 
+				,random() as rand
+			 FROM benchmark_cassette_2013.riegl_pcpatch_space 
+			WHERE points_per_level IS NOT NULL
+				AND dominant_simplified_class IS NOT NULL
+			 UNION ALL
+			 SELECT gid  ,'tmob' AS src ,points_per_level , dominant_simplified_class  ,proba_occurency 
+				,random() as rand
+			 FROM acquisition_tmob_012013.riegl_pcpatch_space 
+			 WHERE points_per_level IS NOT NULL  
+				AND dominant_simplified_class IS NOT NULL
+	)
+	 ,count_per_class as (
+		SELECT dominant_simplified_class , count(*) AS  obs_per_class
+		FROM  patch_to_use 
+		GROUP BY dominant_simplified_class
+			
+	) 
+	,array_agg AS (
+		SELECT 
+			array_agg(gid ORDER BY gid ASC) AS gid
+			,   array_agg(     COALESCE(points_per_level[2]/8.0,0)   ORDER BY gid ASC) as f1
+			, array_agg(   COALESCE(points_per_level[3]/64.0,0)    ORDER BY gid ASC) as f2 
+			, array_agg(  COALESCE(points_per_level[4]/512.0,0)    ORDER BY gid ASC) as f3
+			,  array_agg(  COALESCE(points_per_level[5]/4096.0,0)    ORDER BY gid ASC) as f4
+			, array_agg( --ptu.dominant_simplified_class 
+				CASE WHEN ptu.dominant_simplified_class !=5 THEN 0 ELSE ptu.dominant_simplified_class END
+				ORDER BY gid ASC) as gt_class
+			,  array_agg(proba_occurency ORDER BY gid ASC) AS proba 
+		FROM patch_to_use AS ptu LEFT OUTER JOIN count_per_class AS cpc ON (cpc.dominant_simplified_class = ptu.dominant_simplified_class)
+			WHERE 
+				--(dominant_simplified_class=5 AND random() <0.90) = false
+				--AND (dominant_simplified_class=4 AND random() <0.83) = false
+				 NOT (ptu.dominant_simplified_class = ANY (ARRAY[0,1]))
+				AND rand  < 1000.0/(  obs_per_class::float) --this allows to have approx 1000 obs per class 
+	) 
+	SELECT  r.* 
+	FROM array_agg,rc_random_forest_cross_valid_per_class(gid,f1,f2,f3,f4,gt_class,proba,10,30) as r ; 
 		
-)
-,array_agg AS (
-	SELECT 
-		array_agg(gid ORDER BY gid ASC) AS gid
-		,   array_agg(     COALESCE(points_per_level[1]/1.0,0)   ORDER BY gid ASC) as f1
-		, array_agg(   COALESCE(points_per_level[2]/8.0,0)    ORDER BY gid ASC) as f2 
-		, array_agg(  COALESCE(points_per_level[3]/64.0,0)    ORDER BY gid ASC) as f3
-		,  array_agg(  COALESCE(points_per_level[4]/512.0,0)    ORDER BY gid ASC) as f4
-		, array_agg( dominant_simplified_class 
-			--CASE WHEN dominant_simplified_class !=4 THEN 0 ELSE dominant_simplified_class END
-			ORDER BY gid ASC) as gt_class
-		,  array_agg(proba_occurency ORDER BY gid ASC) AS proba 
-	FROM patch_to_use
-		WHERE (dominant_simplified_class=5 AND random() <0.90) = false
-			AND (dominant_simplified_class=4 AND random() <0.83) = false
-) 
-SELECT  r.* 
-FROM array_agg,rc_random_forest_cross_valid_per_class(gid,f1,f2,f3,f4,gt_class,proba,10,100) as r ;
- 
-	
