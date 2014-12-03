@@ -13,6 +13,7 @@ import numpy as np ;
 from sklearn.ensemble import RandomForestClassifier ; 
 from sklearn.tree import DecisionTreeClassifier; 
 from sklearn import cross_validation ; 
+from sklearn.preprocessing import normalize
 #from sklearn import metrics ;  
 #from sklearn.feature_selection import RFECV ; 
 import pandas as pd; 
@@ -24,7 +25,11 @@ import matplotlib.pyplot as plt
  
 
 #parameters of the random forest
-n_estimator = 10 ;  
+n_estimator = 10 ; 
+
+labels=  np.zeros(6, dtype={'names':['class_id', 'class_name'], 'formats':['i4','a10']})  
+labels[:] =  [(0,"undef" ),(1,"other"),(2,"ground"),(3,"object"),(4,"building"),(5,"vegetation")]  
+  
     
 f1 = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]);
 f2 = np.array([4,6,8,4,4,4,2,4,4,4,4,4,4,4,4,4,2,3,4,4,4,4,4,4,4,4,4,8,5,8]);
@@ -91,8 +96,9 @@ for i ,(train, test)  in enumerate(kf_total) :
 
 grouped_result = result.groupby(["class_chosen"])  
 
+full_dataset = [] ; 
 grouped_proba = grouped_result['proba_chosen',"is_correct","ground_truth_class"]
-for name, group in grouped_proba :
+for i ,(name, group) in enumerate(grouped_proba) :
     #print(name)
     #print(group.sort(columns="proba_chosen" ).cumsum() )
     g2 = group.sort(columns="proba_chosen",ascending=False )
@@ -108,54 +114,34 @@ for name, group in grouped_proba :
     title("using prediction by descending confidence")
     ylim([-10,110]) 
     savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_'+str(name) +'_.png')
-    close() 
-
-g2[['new_index','proba_chosen','is_correct','result_prediction']]
-plot = g2.plot(x='new_index', y= 'result_prediction')
-xlabel("number_of_observations")
-ylabel("precision_of_prediction")
-title("using prediction by descending confidence")
-ylim([0,100]) 
-savefig('/tmp/test_output.pdf')
-close();
-
- 
-
-labels=  np.zeros(6, dtype={'names':['class_id', 'class_name'], 'formats':['i4','a10']}) 
-labels[clf.classes_]['class_name']
-labels[:] =  [(0,"undef" ),(1,"other"),(2,"ground"),(3,"object"),(4,"building"),(5,"vegetation")] 
-labels['class_name']
-
-labels_df = pd.DataFrame.from_records(labels, index = 'class_id' ) ; 
-labels_gt = labels_df.rename(columns={'class_name': 'ground_truth_class_name'} ) 
-labels_chosen = labels_df.rename(columns={'class_name': 'chosen_class_name'} )
-g2 = g2.join(labels_gt, on = 'ground_truth_class')
-g2 = g2.join(labels_chosen, on = 'class_chosen')
- 
- 
-classes_used = np.array(clf.classes_,dtype=[('class_id', np.int_) ])
- type(clf.classes_)
- 
-classes_used_df = pd.DataFrame(clf.classes_ ) 
-classes_used_df.columns = ['class_id'] ;
-classes_used_df = classes_used_df.set_index('class_id')
+    close()
+    if i == 1:
+        full_dataset = g2[('ground_truth_class','class_chosen')] ;
+    else : 
+        full_dataset = full_dataset.append( g2[('ground_truth_class','class_chosen')],ignore_index=True) ;
+        
 
 cm = confusion_matrix(g2['ground_truth_class'], g2['class_chosen']) 
+cm = cm * 1.0
+preprocessing.normalize(cm, norm='l1', axis=0)
+cm = cm/len(g2)
 fig = plt.figure()
 ax = fig.add_subplot(111)
-cax = ax.matshow(cm)
+cax = ax.matshow(cm,cmap = plt.get_cmap('YlOrBr'),vmin=0, vmax=1) 
 plt.title('Confusion matrix of the classifier')
-fig.colorbar(cax)
+fig.colorbar(cax, cmap = plt.get_cmap('YlOrBr') )
 ax.set_xticklabels([''] + list(labels[clf.classes_]['class_name']) )
 ax.set_yticklabels([''] + list(labels[clf.classes_]['class_name']) )
 plt.xlabel('Predicted')
 plt.ylabel('True')
+for i, cas in enumerate(cm):
+    for j, c in enumerate(cas):
+        if c>0:
+            plt.text(j-.2, i+.2, c, fontsize=14)
 fig.show()
 plt.savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_confusion_matrix_.png')
 plt.close();
-
-cm = confusion_matrix(y_test, pred, labels)
-print(cm)
+ 
 
 cax = ax.matshow(cm)
 pl.title('Confusion matrix of the classifier')

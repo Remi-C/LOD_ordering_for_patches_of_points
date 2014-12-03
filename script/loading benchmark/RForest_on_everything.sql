@@ -148,10 +148,9 @@ WHERE dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL
 LIMIT 1  ; 
 
 
-SELECT *
-FROM acquisition_tmob_012013.riegl_pcpatch_space  
-lIMIT  1
-where ( dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL) AND patch_height IS NULL ;
+SELECT count(*)
+FROM riegl_pcpatch_space   
+where ( dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL) 
 
 
 
@@ -254,7 +253,7 @@ for name, group in grouped_proba :
 	#title = title("using prediction by descending confidence")
 	#ylim = ylim([-10,110]) 
 	save  = plt.savefig(
-		'/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_'
+		'/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_all_feature_'
 		#+ str(int( np.amax(clf.classes_)))
 		#+'_against_all_'
 		+str(int(name)) 
@@ -285,7 +284,7 @@ for i, cas in enumerate(cm):
 	for j, c in enumerate(cas):
 		if c>0:
 			plt.text(j-.2, i+.2, str(round(c, 3)), fontsize=12)
-plt.savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_confusion_matrix_.png')
+plt.savefig('/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/test_output_all_feature_confusion_matrix_.png')
 plt.clf()
 plt.cla()
 plt.close() 
