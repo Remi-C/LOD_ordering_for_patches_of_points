@@ -58,9 +58,6 @@ def testBit(int_type, offset):
 testBit(8,1)
 pointcloud_bin = np.binary_repr(pointcloud_int)
 
-funcs = [lambda x: np.binary_repr(x)]
-apply_vectorized = np.vectorize(lambda f, x: f(x))
-pointcloud_bin = apply_vectorized(funcs, pointcloud_int)
 
 pointcloud_int >> (tot_level-1) ; 
 #np.binary_repr(8)
@@ -168,8 +165,8 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
             
             #find the points concerned :
             point_in_subpart_mask = np.logical_and(
-                 testBit(point_array[:,0],level) ==b_x
-                , testBit(point_array[:,1],level) ==b_y  ) ; 
+                 testBit(point_array[:,0],tot_level - level-1) ==b_x
+                , testBit(point_array[:,1],tot_level - level -1) ==b_y  ) ; 
             sub_part_points= point_array[point_in_subpart_mask]; 
             sub_part_index = index_array[point_in_subpart_mask];
             sub_part_center_point = center_point  + np.asarray([
@@ -227,3 +224,6 @@ fig.show();
 
 for f in list((0,1)):
     (f*2-1)
+    
+    
+import octree_ordering
