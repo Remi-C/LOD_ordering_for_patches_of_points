@@ -40,6 +40,7 @@ import matplotlib.pyplot as plt
 #    #ax4.title('mid octree points'); 
 #    fig1.show()
 #    fig.show()
+  
 
 
 def order_by_octree():
@@ -62,10 +63,14 @@ def order_by_octree():
     #test 
  
 def order_by_octree_pg(iar,tot_level,data_dim):
-    the_result = [];
+    the_result = [];index =[];
     #converting the 1D array to 2D array
-    np_array = np.reshape(np.array(iar), (-1, 3))  ; 
+    temp_pointcloud = np.reshape(np.array(iar), (-1, data_dim))  ; 
     
+    pointcloud = np.column_stack( (temp_pointcloud[:,0],temp_pointcloud[:,1]) )
+ 
+    #creating the index array     
+    index = np.arange(0,pointcloud.shape[0])   
     #centering/scaling/quantizing the data
     pointcloud_int = center_scale_quantize(pointcloud,tot_level );  
      
@@ -75,8 +80,9 @@ def order_by_octree_pg(iar,tot_level,data_dim):
     #iterating trough octree : 
     recursive_octree_ordering(pointcloud_int,index,center_point, 0,tot_level, the_result,piv) ;
     
-    #return the_result ;
-    
+    return the_result ;
+     
+
 
 def create_test_data(tot_level,test_data_size,test_data_dim): 
     """Simple helper function to create a pointcloud with random values"""
