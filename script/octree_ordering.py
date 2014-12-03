@@ -12,45 +12,45 @@ we order the point by the MidOc ordering
 import numpy as np; 
 import matplotlib.pyplot as plt
 #from numpy import random ;
-
-def plot_points(point_cloud, points_scaled_quantized,result,piv):
-    plt.clf()
-    plt.cla()
-    plt.close() 
-    piv_ar = [] ;
-    r_ar = []; 
-    piv_ar = np.array(piv)
-    r_ar = np.array(result); 
-    print piv
-    result_point = points_scaled_quantized[r_ar[:,0]] 
-
-    
-    fig1,ax1 = plt.subplots(nrows=1, ncols=1) ; 
-    ax1.scatter(point_cloud[:,0], point_cloud[:,1],  c= 'red')
-    #ax1.title('original_cloud')   
-      
-    fig, ( ax2,ax3,ax4) = plt.subplots(nrows=1, ncols=3,sharex=True,sharey=True);
-     
-   
-    ax2.scatter(points_scaled_quantized[:,0], points_scaled_quantized[:,1], c='green');
-    #ax2.title('scaled_quantized cloud');
-    ax3.scatter(result_point[:,0], result_point[:,1],  c= 'blue')
-    #ax3.title('chosen_points')    
-    ax4.scatter(piv_ar[:,0], piv_ar[:,1], c='yellow');
-    #ax4.title('mid octree points'); 
-    fig1.show()
-    fig.show()
+#
+#def plot_points(point_cloud, points_scaled_quantized,result,piv):
+#    plt.clf()
+#    plt.cla()
+#    plt.close() 
+#    piv_ar = [] ;
+#    r_ar = []; 
+#    piv_ar = np.array(piv)
+#    r_ar = np.array(result); 
+#    #print piv
+#    result_point = points_scaled_quantized[r_ar[:,0]] 
+#
+#    
+#    fig1,ax1 = plt.subplots(nrows=1, ncols=1) ; 
+#    ax1.scatter(point_cloud[:,0], point_cloud[:,1],  c= 'red')
+#    #ax1.title('original_cloud')   
+#      
+#    fig, ( ax2,ax3,ax4) = plt.subplots(nrows=1, ncols=3,sharex=True,sharey=True);
+#     
+#   
+#    ax2.scatter(points_scaled_quantized[:,0], points_scaled_quantized[:,1], c='green');
+#    #ax2.title('scaled_quantized cloud');
+#    ax3.scatter(result_point[:,0], result_point[:,1],  c= 'blue')
+#    #ax3.title('chosen_points')    
+#    ax4.scatter(piv_ar[:,0], piv_ar[:,1], c='yellow');
+#    #ax4.title('mid octree points'); 
+#    fig1.show()
+#    fig.show()
 
 
 def order_by_octree():
     #creating test data 
     tot_level,test_data_size,test_data_dim, pointcloud,index = \
-        create_test_data(5,1000,2); 
+        create_test_data(5,10000,2); 
     
     #centering/scaling/quantizing the data
     pointcloud_int = center_scale_quantize(pointcloud,tot_level );  
      
-    #initializing variables
+    #initializing variablesoctree_ordering
     center_point,result,piv = preparing_tree_walking(tot_level) ;   
      
     #iterating trough octree : 
@@ -59,37 +59,24 @@ def order_by_octree():
     #print the result  
     plot_points(pointcloud, pointcloud_int,result, piv) ; 
     
-    #test
-    pointcloud_int
-    cpoint = np.array([4,4]); 
-    distance = np.sum(np.abs(pointcloud_int - cpoint ),axis=1)
-    min_point = np.argmin(distance , axis= None )
-    multi_idx = np.unravel_index(min_point, distance.shape)  
-    
-    
+    #test 
  
-#def temp():
-#    #printing result :
-#    result; 
-#    piv ;   
-#    rec_ar = np.array(rec) 
-#    piv_ar = np.array(piv) 
-#    plt.plot(piv_ar[:,0], piv_ar[:,1], 'ro') ;
-#    
-#    
-#    point_in_subpart_mask =  np.all(testBit_arr(pointcloud_int, numpy.array([(2,2)]))==numpy.array([(0,1)]),axis=1)
-#    
-#    point_in_subpart_mask =  np.all(testBit_arr(pointcloud_int, numpy.array([(2,2)]))==numpy.array([(0,1)]),axis=1)
-#    
-#    
-#    point_in_subpart_mask == np.logical_and(
-#                     testBit(pointcloud_int[:,0],2) ==0
-#                    , testBit(pointcloud_int[:,1],2) ==1  ) 
-#    
-#    #visualizing bit of points :
-
-
-
+def order_by_octree_pg(iar,tot_level,data_dim):
+    the_result = [];
+    #converting the 1D array to 2D array
+    np_array = np.reshape(np.array(iar), (-1, 3))  ; 
+    
+    #centering/scaling/quantizing the data
+    pointcloud_int = center_scale_quantize(pointcloud,tot_level );  
+     
+    #initializing variables
+    center_point,the_result,piv = preparing_tree_walking(tot_level) ;   
+     
+    #iterating trough octree : 
+    recursive_octree_ordering(pointcloud_int,index,center_point, 0,tot_level, the_result,piv) ;
+    
+    #return the_result ;
+    
 
 def create_test_data(tot_level,test_data_size,test_data_dim): 
     """Simple helper function to create a pointcloud with random values"""
@@ -175,28 +162,21 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
     #print for debug
     #recursive_octree_ordering_print(point_array,index_array, center_point, level,tot_level, result,piv);
         
-    if len(point_array) == 0:
+    if ( (len(point_array) == 0) | (level>=tot_level)):
         return;
-    
-    if level > 2:
-        return;
+     
     #print 'level ',level,' , points remaining : ',len(point_array) ;
     #print center_point;
     piv.append(center_point); 
-       
-    
-    #find the close    st point to pivot
-    distance = np.sum(np.abs(point_array - cpoint ),axis=1)
-    min_point = np.argmin(distance , axis= None )
-    multi_idx = np.unravel_index(min_point, distance.shape)
-    result.append(list((index_array[multi_idx[0]],level))) ;  
     
     
+    #find the close    st point to pivot 
     min_point = np.argmin(np.sum(np.abs(point_array - center_point ),axis=1))
     result.append(list((index_array[min_point],level))) ;  
+    
     #removing the found point from the array of points 
-    np.delete(point_array, min_point, axis=0) ;
-    np.delete(index_array, min_point, axis=0) ;
+    np.delete(point_array, min_point, axis=None) ;
+    np.delete(index_array, min_point, axis=None) ;
     
     #stopping if it remains no pioint : we won't divide further, same if we have reached max depth
     if (len(point_array) ==0 )|(level >= tot_level):
@@ -206,7 +186,7 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
     for b_x in list((0,1))  :
         for b_y in list((0,1)) :
             #looping on all 4 sub parts
-            print (b_x*2-1), (b_y*2-1) ;
+            #print (b_x*2-1), (b_y*2-1) ;
             udpate_to_pivot = np.asarray([ (b_x*2-1)*(pow(2,tot_level - level -2  )) 
                 ,(b_y*2-1)*(pow(2,tot_level - level -2  ))
             ]); 
@@ -220,12 +200,6 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
             #update center point, we need to add/substract to previous pivot 2^level+11
             
             #find the points concerned :
-            print np.column_stack( (point_array \
-                ,testBit(point_array[:,0],tot_level - level -1 ) \
-                ,testBit(point_array[:,1],tot_level - level -1) ) ); 
-                
-            print  array_to_bit(point_array) ;
-            
             
             point_in_subpart_mask =( (
                  testBit(point_array[:,0],tot_level - level -1 ) ==b_x)
@@ -257,5 +231,4 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
                 print 'at televel ',level,'bx by:',b_x,' ',b_y,' refusing to go one, ', len(sub_part_points), ' points remaining fo this'
                 continue;
 
-
-order_by_octree();
+ 
