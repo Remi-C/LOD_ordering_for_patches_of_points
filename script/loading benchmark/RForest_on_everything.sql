@@ -13,7 +13,7 @@ SET search_path to benchmark_cassette_2013, public;
 	-- area of the patch (2D)
 	-- range of reflectance 
 	--max(numbe rof echo ) 
-
+/*
 SELECT *
 FROM acquisition_tmob_012013.riegl_pcpatch_space 
 LIMIT 1 
@@ -152,14 +152,14 @@ SELECT count(*)
 FROM riegl_pcpatch_space   
 where ( dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL) 
 
-
+*/
 
 
 
 	--a plpython predicting gt_class, cross_validation , result per class 
 DROP FUNCTION IF EXISTS rc_random_forest_cross_valid_per_class_all_features( gid FLOAT[], f1 FLOAT[], f2 FLOAT[], f3 FLOAT[], f4 FLOAT[], f5 FLOAT[], f6 FLOAT[], f7 FLOAT[], f8 FLOAT[],f9 float[], gt_class int[], proba float[],int ,int);
 CREATE FUNCTION rc_random_forest_cross_valid_per_class_all_features ( gid FLOAT[], f1 FLOAT[], f2 FLOAT[], f3 FLOAT[], f4 FLOAT[], f5 FLOAT[], f6 FLOAT[], f7 FLOAT[], f8 FLOAT[],f9 float[], gt_class int[], proba float[],kfold int default 5, tree_number int default 10) 
-RETURNS TABLE(gt_class float, correct_prediction float )--TABLE (gid int, predicted_class int, confidence float)
+RETURNS TABLE(gid int, gt_class INT, prediction INT, confidence FLOAT )--TABLE (gid int, predicted_class int, confidence float)
 AS $$
 """
 This function use random forest on an input vector to learn with half of the vector and  predit on the other half.
@@ -216,15 +216,15 @@ for i ,(train, test)  in enumerate(kf_total) :
 	max_values = np.amax(tmp_prob,axis=1);
 
 	#grouping for score per class
-	proba_class_chosen = np.column_stack( (max_values,chosen_class, chosen_class == Y_test,Y_test ) ) ; 
-	df = pd.DataFrame(proba_class_chosen, columns = ("proba_chosen","class_chosen","is_correct","ground_truth_class" )) ; 
+	proba_class_chosen = np.column_stack( (max_values,chosen_class, chosen_class == Y_test,Y_test ,np.array(gid)[test]   ) ) ; 
+	df = pd.DataFrame(proba_class_chosen, columns = ("proba_chosen","class_chosen","is_correct","ground_truth_class" ,"gid")) ; 
 	print i ; 
 	if i == 0 :
 		result = df;
 	else:
 		result = result.append( df,ignore_index=True) ; 
-	plpy.notice("feature used, by importcy");
-	plpy.notice(clf.feature_importances_)
+	#plpy.notice("feature used, by importcy");
+	#plpy.notice(clf.feature_importances_)
     
 grouped_result = result.groupby(["class_chosen"])   
 mean_result  = grouped_result.aggregate(np.mean) ;   
@@ -270,7 +270,7 @@ plt.cla ;
 cm = confusion_matrix(result['ground_truth_class'], result['class_chosen']) 
 cm = cm * 1.0 ;
 preprocessing.normalize(cm, norm='l1', axis=0,copy=False)
-plpy.notice(cm); 
+#plpy.notice(cm); 
 fig = plt.figure()
 ax = fig.add_subplot(111)
 cax = ax.matshow(cm,cmap = plt.get_cmap('YlOrBr'),vmin=0, vmax=1) 
@@ -289,9 +289,21 @@ plt.clf()
 plt.cla()
 plt.close() 
 
-to_be_returned = np.column_stack(((np.trunc(mean_result.to_records(index=True)["class_chosen"])).astype(int),mean_result.to_records(index=True)["is_correct"] ))
+
+#returning: 
+re = np.column_stack((result['gid'],result['ground_truth_class'].astype(int), result['class_chosen'].astype(int), result['proba_chosen']  )) ;
+plpy.notice(re);
+to_be_returned = [] ;
+for a in re:
+	to_be_returned.append(   ( int(a[0]),  int(a[1]), int(a[2]), float(a[3]) ) );
+	
+#to_be_returned = np.column_stack(((np.trunc(mean_result.to_records(index=True)["class_chosen"])).astype(int),mean_result.to_records(index=True)["is_correct"] ))
+
+
 plpy.notice(type(to_be_returned));
-return to_be_returned.tolist();
+plpy.notice(to_be_returned);
+
+return to_be_returned ;
 $$ LANGUAGE plpythonu IMMUTABLE STRICT; 
 
 
@@ -347,6 +359,7 @@ WITH patch_to_use AS (
 				 NOT (ptu.dominant_simplified_class = ANY (ARRAY[0, 1]))
 				AND rand  < 1000.0/(  obs_per_class::float) --this allows to have approx 1000 obs per class 
 				AND proba_occurency >0.95
+				and rand <0.1
 	) 
 	SELECT  r.* 
 	FROM array_agg,rc_random_forest_cross_valid_per_class_all_features(gid,f1,f2,f3,f4,f5,f6,f7,f8,f9,gt_class,proba,10,30) as r ; 
