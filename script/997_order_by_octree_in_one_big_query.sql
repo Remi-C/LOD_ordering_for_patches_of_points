@@ -3,7 +3,7 @@
 --------------
 --this script tries to order in octree in one querry
 --------------
-
+CREATE SCHEMA IF NOT EXISTS lod ; 
 SET search_path to lod, public; 
 
 DROP TABLE IF EXISTS test_order_index_points;
