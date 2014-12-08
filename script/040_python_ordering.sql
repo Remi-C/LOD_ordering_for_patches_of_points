@@ -24,7 +24,7 @@ import sys
 sys.path.insert(0, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script')
 
 import octree_ordering ;
-#reload(octree_ordering) ;
+reload(octree_ordering) ;
 
 #plpy.notice(type(iar));
 tmp_result = octree_ordering.order_by_octree_pg(iar, tot_level,stop_level,data_dim);
@@ -47,9 +47,9 @@ COPY (
 	WITH patch AS ( 
 		SELECT * , 3 As rounding_digits
 		FROM benchmark_cassette_2013.riegl_pcpatch_space 
-		--WHERE pc_numpoints(patch) BETWEEN 2000 AND 3000
+		WHERE pc_numpoints(patch) BETWEEN 2000 AND 3000
 		--AND patch_area > 0.9
-		--AND gid = 1107
+		AND gid = 1107
 		--LIMIT 1  
 	)
 	,points AS (
@@ -138,12 +138,12 @@ $$ LANGUAGE plpgsql IMMUTABLE CALLED ON NULL INPUT ;
 
 COPY ( 
 	WITH patch AS ( 
-		SELECT r.* , 3 as rounding_digits 
+		SELECT r.* , 3 as rounding_digits , pc_numpoints(patch) , pc_numpoints(opatch)
 		FROM benchmark_cassette_2013.riegl_pcpatch_space 
 			,rc_py_MidOc_ordering_patch(patch,6,6,3,3) as r    
 		WHERE pc_numpoints(patch) >=100
 		--AND patch_area > 0.9
-		--AND gid = 1107
+		AND gid  = 4440 
 		--LIMIT 1  
 	)  
 	SELECT 
@@ -152,6 +152,8 @@ COPY (
 		, round(PC_Get((pt).point,'Z'),rounding_digits) as  z
 		, round(PC_Get((pt).point,'reflectance'),rounding_digits) as reflectance
 		,(pt).ordinality
+		,(pt).ordinality
+		,(pt).ordinality
 	FROM patch, rc_explodeN_numbered( opatch,-1) as pt  
 	 
 )
@@ -159,13 +161,15 @@ TO '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_o
 
 
 	WITH patch AS ( 
-		SELECT * , 3 As rounding_digits
+		SELECT * , 3 As rounding_digits, pc_numpoints(patch)
 		FROM benchmark_cassette_2013.riegl_pcpatch_space 
-		WHERE pc_numpoints(patch) BETWEEN 2000 AND 3000
+		WHERE pc_numpoints(patch) BETWEEN 0 AND 255
 		AND patch_area > 0.9
-		AND gid = 1107
+		AND gid  = 4440 
 		LIMIT 1  
 	)
 	SELECT r.*
 	FROM patch,rc_py_MidOc_ordering_patch(patch,6,6,3,3) as r  ;
+
+	
  
