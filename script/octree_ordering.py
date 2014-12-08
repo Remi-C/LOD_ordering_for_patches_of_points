@@ -77,7 +77,7 @@ def test_order_by_octree_pg():
     iar =  [-100.838, 1289.154, 38.265, -100.604, 1289.07, 38.264, -101.433, 1288.963, 38.276, -100.928, 1289.498, 38.265, -100.854, 1289.104, 38.264, -100.547, 1289.375, 38.257, -101.451, 1289.113, 38.276, -101.258, 1288.975, 38.274, -100.724, 1289.012, 38.266, -100.905, 1289.201, 38.264, -101.239, 1288.521, 38.276, -100.573, 1288.568, 38.268, -100.786, 1288.906, 38.262, -100.996, 1288.691, 38.269, -100.804, 1288.703, 38.27, -101.111, 1288.885, 38.269, -100.554, 1289.473, 38.26, -100.761, 1288.758, 38.266, -101.194, 1288.828, 38.273, -100.512, 1289.227, 38.261, -101.213, 1288.523, 38.276, -101.4, 1289.316, 38.273, -100.83, 1288.602, 38.27, -101.411, 1289.266, 38.271, -101.345, 1288.666, 38.279, -101.208, 1289.279, 38.27, -101.014, 1288.588, 38.271, -101.366, 1289.469, 38.271, -101.002, 1288.842, 38.27, -101.004, 1289.145, 38.269, -101.068, 1288.736, 38.273, -101.124, 1289.484, 38.27, -101.264, 1288.52, 38.276, -101.181, 1288.83, 38.273, -100.88, 1288.648, 38.267, -101.435, 1288.762, 38.277, -100.745, 1288.557, 38.268, -100.874, 1289.252, 38.264, -100.975, 1289.045, 38.267, -100.588, 1289.021, 38.263, -101.448, 1289.314, 38.272, -101.203, 1289.131, 38.271, -100.516, 1288.824, 38.261, -101.187, 1288.729, 38.27, -101.003, 1288.689, 38.269, -101.211, 1289.029, 38.271, -100.802, 1289.006, 38.265, -101.417, 1288.814, 38.278, -101.268, 1289.076, 38.27, -100.676, 1289.166, 38.262, -101.281, 1288.621, 38.275, -100.938, 1288.797, 38.271, -100.865, 1288.699, 38.271, -100.781, 1288.654, 38.268, -100.536, 1289.025, 38.262, -101.283, 1289.023, 38.272, -100.517, 1289.076, 38.262, -100.624, 1289.469, 38.261, -100.79, 1289.357, 38.26, -100.951, 1288.846, 38.269, -101.152, 1289.334, 38.267, -101.308, 1288.619, 38.278, -101.487, 1288.758, 38.276, -100.688, 1288.713, 38.264, -101.452, 1289.363, 38.27, -100.768, 1288.807, 38.265, -101.451, 1289.012, 38.276, -100.76, 1288.555, 38.266, -100.54, 1288.975, 38.264, -101.482, 1289.41, 38.271, -101.341, 1289.371, 38.27, -100.713, 1289.113, 38.266, -100.766, 1288.656, 38.269, -100.991, 1289.395, 38.269, -100.525, 1288.621, 38.263, -101.34, 1289.172, 38.274, -100.93, 1289.398, 38.265, -101.237, 1289.428, 38.267, -101.348, 1288.869, 38.276, -101.426, 1288.561, 38.28, -101.035, 1288.586, 38.271, -101.449, 1289.164, 38.273, -101.112, 1288.633, 38.275, -100.796, 1289.258, 38.264, -100.87, 1289.102, 38.267, -100.649, 1288.512, 38.266, -100.58, 1288.77, 38.264, -101.087, 1289.488, 38.267, -101.209, 1288.727, 38.275, -100.799, 1288.502, 38.264, -100.941, 1289.299, 38.266, -100.693, 1288.863, 38.263, -101.36, 1289.369, 38.27, -101.466, 1288.607, 38.278, -100.588, 1288.971, 38.261, -100.667, 1288.713, 38.267, -101.416, 1288.863, 38.277, -100.662, 1288.563, 38.264, -101.375, 1289.369, 38.274, -101.201, 1289.33, 38.27] ; 
     
     
-    return order_by_octree_pg(iar,7,7,3);
+    return order_by_octree_pg(iar,7,3,3);
     
     
 def order_by_octree():
@@ -187,7 +187,7 @@ def preparing_tree_walking(tot_level):
     #computing center_point, 
     point_coor = pow(2,tot_level-1) ;
     center_point = np.array([point_coor,point_coor,point_coor])
-    #puttig result and iv to [];
+    #puttig result and iv to []; 
     return center_point,[],[];
     
 
@@ -219,7 +219,7 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
     #print 'level ',level,' , points remaining : ',len(point_array) ;
     #print center_point; 
     piv.append(center_point.tolist()); #casting the point to a simple array, to simplify piv
-    2
+ 
     
     #find the close    st point to pivot 
     min_point = np.argmin(np.sum(pow(point_array - center_point ,2),axis=1))
@@ -228,12 +228,13 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
     #print 'min_point ',min_point,'its index ', index_array[min_point],'the point ',  point_array[min_point] ; 
     
     #print 'n points before delete : ',len(point_array) ;     
-    #removing the found point from the array of points 
-
-    #point_array= np.delete(point_array, min_point,axis=0 ) ;
-    #index_array= np.delete(index_array, min_point,axis=0 ) ;
-    point_array[min_point,:]=-1; 
-    index_array[min_point] = -1; 
+    #removing the found point from the array of points  
+    
+    print 'point found :',point_array[min_point],'index is: ',  index_array[min_point];
+    point_array= np.delete(point_array, min_point,axis=0 ) ;
+    index_array= np.delete(index_array, min_point,axis=0 ) ; 
+    #point_array[min_point,:]=-1; 
+    #index_array[min_point] = -1; 
     #print 'n points after delete : ',len(point_array) ; 
     #print 'all the point after delete ', point_array
     #sprint '\n\n';
@@ -243,6 +244,15 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
 
     bit_value_for_next_lev =  testBit(point_array,tot_level - level -1) ; 
     
+    print '\t'*level,'total numpoints on this level: ',len(point_array),' = ';
+    for b_x in list((0,1))  :
+        for b_y in list((0,1)) :
+            for b_z in list((0,1)):
+                point_in_subpart_mask = np.all( \
+                    bit_value_for_next_lev == np.array([b_x,b_y,b_z]), axis=1);  
+               # print '\t'*(level+1),len(point_in_subpart_mask[point_in_subpart_mask==True])
+                #print '\t'*(level+1),index_array[point_in_subpart_mask]
+                
     #compute the 8 sub parts
     for b_x in list((0,1))  :
         for b_y in list((0,1)) :
@@ -282,10 +292,7 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
                 #print 'lenght point : ',len(point_array),' length sub_part_point : ',len(sub_part_points);
                 len_subpart = len(sub_part_points) ;
                 if len_subpart==0: #no more point, don't go depper
-                    continue;
-                elif len_subpart==1: #only one point, ass it and stop
-                    result.append(list((index_array[0],level+1)))
-                    continue 
+                    continue; 
                 else:#maybe many points, need to go deeper
                     recursive_octree_ordering(sub_part_points
                         ,sub_part_index
@@ -295,10 +302,16 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
                         , stop_level
                         , result
                         , piv); 
-                    continue;  
+                        #continue;  
+    return point_array,index_array ,result,piv
 
-
-#import cProfile 
-
-#cProfile.run('test_order_by_octree_pg();')
-#toto = test_order_by_octree_pg(); 
+#
+##import cProfile 
+#import pandas as pd
+#import numpy as np
+##cProfile.run('test_order_by_octree_pg();')
+#toto =  test_order_by_octree_pg(); 
+#print toto
+#s = pd.Series(toto[:,0])
+#print  np.array(s[s.duplicated()]).T 
+#print  len(np.array(s[s.duplicated()]).T)
