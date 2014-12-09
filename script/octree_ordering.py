@@ -228,9 +228,7 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
     #print 'min_point ',min_point,'its index ', index_array[min_point],'the point ',  point_array[min_point] ; 
     
     #print 'n points before delete : ',len(point_array) ;     
-    #removing the found point from the array of points  
-    
-    print 'point found :',point_array[min_point],'index is: ',  index_array[min_point];
+    #removing the found point from the array of points   
     point_array= np.delete(point_array, min_point,axis=0 ) ;
     index_array= np.delete(index_array, min_point,axis=0 ) ; 
     #point_array[min_point,:]=-1; 
@@ -244,15 +242,7 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
 
     bit_value_for_next_lev =  testBit(point_array,tot_level - level -1) ; 
     
-    print '\t'*level,'total numpoints on this level: ',len(point_array),' = ';
-    for b_x in list((0,1))  :
-        for b_y in list((0,1)) :
-            for b_z in list((0,1)):
-                point_in_subpart_mask = np.all( \
-                    bit_value_for_next_lev == np.array([b_x,b_y,b_z]), axis=1);  
-               # print '\t'*(level+1),len(point_in_subpart_mask[point_in_subpart_mask==True])
-                #print '\t'*(level+1),index_array[point_in_subpart_mask]
-                
+   
     #compute the 8 sub parts
     for b_x in list((0,1))  :
         for b_y in list((0,1)) :
@@ -289,9 +279,8 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
                 #    , testBit(point_array[:,1],level) ==b_y  ) ; 
                 sub_part_points= point_array[point_in_subpart_mask]; 
                 sub_part_index = index_array[point_in_subpart_mask];  
-                #print 'lenght point : ',len(point_array),' length sub_part_point : ',len(sub_part_points);
-                len_subpart = len(sub_part_points) ;
-                if len_subpart==0: #no more point, don't go depper
+                #print 'lenght point : ',len(point_array),' length sub_part_point : ',len(sub_part_points); 
+                if len(sub_part_points)==0: #no more point, don't go depper
                     continue; 
                 else:#maybe many points, need to go deeper
                     recursive_octree_ordering(sub_part_points
@@ -306,10 +295,10 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
     return point_array,index_array ,result,piv
 
 #
-##import cProfile 
+#import cProfile 
 #import pandas as pd
 #import numpy as np
-##cProfile.run('test_order_by_octree_pg();')
+#cProfile.run('test_order_by_octree_pg();')
 #toto =  test_order_by_octree_pg(); 
 #print toto
 #s = pd.Series(toto[:,0])
