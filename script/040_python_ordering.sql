@@ -24,7 +24,7 @@ import sys
 sys.path.insert(0, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script')
 
 import octree_ordering ;
-reload(octree_ordering) ;
+#reload(octree_ordering) ;
 
 #plpy.notice(type(iar));
 tmp_result = octree_ordering.order_by_octree_pg(iar, tot_level,stop_level,data_dim);
@@ -44,35 +44,31 @@ $$ LANGUAGE plpythonu IMMUTABLE STRICT;
  /*
 COPY (
 
-	WITH patch AS ( 
-		SELECT * , 3 As rounding_digits
-		FROM benchmark_cassette_2013.riegl_pcpatch_space 
-		WHERE pc_numpoints(patch) BETWEEN 2000 AND 3000
-		--AND patch_area > 0.9
-		AND gid = 1107
-		--LIMIT 1  
-	)
-	,points AS (
-		SELECT 
-			round(PC_Get((pt).point,'X'),rounding_digits)  as x
-			, round(PC_Get((pt).point,'Y'),rounding_digits) as y 
-			, round(PC_Get((pt).point,'Z'),rounding_digits) as  z
+	WITH points AS ( 
+		SELECT gid, round(PC_Get((pt).point,'X'),3)  as x
+			, round(PC_Get((pt).point,'Y'),3) as y 
+			, round(PC_Get((pt).point,'Z'),3) as  z
 			,(pt).ordinality
-		FROM patch, rc_explodeN_numbered(patch,-1) as pt  
-		) 
+		FROM benchmark_cassette_2013.riegl_pcpatch_space 
+			, rc_explodeN_numbered(patch,-1) as pt  
+		WHERE pc_numpoints(patch) >30
+		--AND patch_area > 0.9
+		--AND gid = 1107
+		LIMIT 1   
 	,points_LOD AS (
 		SELECT r.level, r.ordering
 		FROM (
 			SELECT array_agg_custom(
 			ARRAY[ x , y , z ] ORDER BY ordinality ASC ) as arr
 			FROM points
-		) AS pts_arr,rc_py_MidOc_ordering(arr,6,6,3) as  r
+		) AS pts_arr,rc_py_MidOc_ordering(arr,6,5,3) as  r
 		ORDER BY level ASC, ordering ASC
 	)
-	SELECT points.x, points.y,points.z, row_number() over(order by level ASC NULLS LAST, random())AS nordering ,coalesce(level,-1) as level
+	SELECT points.x, points.y,points.z,round(PC_Get((pt).point,'reflectance'),3) as reflectance ,gid,
+		, row_number() over(order by level ASC NULLS LAST, random())AS nordering ,coalesce(level,-1) as level
 	FROM points
 		LEFT OUTER JOIN points_LOD  AS plod on (points.ordinality = plod.ordering)
-		ORDER BY plod.level NULLS LAST,nordering
+		 
 )
 TO '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/visu/test_octree_python.csv' WITH CSV HEADER; 
 
@@ -135,29 +131,31 @@ q := format('
 	END;
 $$ LANGUAGE plpgsql IMMUTABLE CALLED ON NULL INPUT ;
  
-
+SELECT 100.0/38
 COPY ( 
-	WITH patch AS ( 
-		SELECT r.* , 3 as rounding_digits , pc_numpoints(patch) , pc_numpoints(opatch)
+	--WITH patch AS ( 
+		SELECT round(PC_Get((pt).point,'X'),3)  as x
+			, round(PC_Get((pt).point,'Y'),3) as y 
+			, round(PC_Get((pt).point,'Z'),3) as  z
+			, round(PC_Get((pt).point,'reflectance'),3) as reflectance
+			,(pt).ordinality 
+			,gid
+			, CASE WHEN (pt).ordinality  = r.points_per_level[1] THEN 0 
+				WHEN (pt).ordinality > rc_ArraySum(r.points_per_level,1) AND (pt).ordinality <= rc_ArraySum(r.points_per_level,2) THEN 1 
+				WHEN (pt).ordinality > rc_ArraySum(r.points_per_level,2) AND (pt).ordinality <= rc_ArraySum(r.points_per_level,3) THEN 2 
+				WHEN (pt).ordinality > rc_ArraySum(r.points_per_level,3) AND (pt).ordinality <= rc_ArraySum(r.points_per_level,4) THEN 3
+				WHEN (pt).ordinality > rc_ArraySum(r.points_per_level,4) AND (pt).ordinality <= rc_ArraySum(r.points_per_level,5) THEN 4
+				ELSE -1 END    AS level
+				--,r.points_per_level
 		FROM benchmark_cassette_2013.riegl_pcpatch_space 
-			,rc_py_MidOc_ordering_patch(patch,6,6,3,3) as r    
-		WHERE pc_numpoints(patch) >=100
+			,rc_py_MidOc_ordering_patch(patch,6,5,3,3) as r    
+			, rc_explodeN_numbered( opatch,-1) as pt  
+		--WHERE pc_numpoints(patch) >=100
 		--AND patch_area > 0.9
-		AND gid  = 4440 
-		--LIMIT 1  
-	)  
-	SELECT 
-		round(PC_Get((pt).point,'X'),rounding_digits)  as x
-		, round(PC_Get((pt).point,'Y'),rounding_digits) as y 
-		, round(PC_Get((pt).point,'Z'),rounding_digits) as  z
-		, round(PC_Get((pt).point,'reflectance'),rounding_digits) as reflectance
-		,(pt).ordinality
-		,(pt).ordinality
-		,(pt).ordinality
-	FROM patch, rc_explodeN_numbered( opatch,-1) as pt  
-	 
+		--AND gid  = 4440 
+		--LIMIT 1    
 )
-TO '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/visu/test_octree_python.csv' WITH CSV HEADER; 
+TO '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/visu/octree_python_benchmark.csv' WITH CSV HEADER; 
 
 
 	WITH patch AS ( 
@@ -171,5 +169,6 @@ TO '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_o
 	SELECT r.*
 	FROM patch,rc_py_MidOc_ordering_patch(patch,6,6,3,3) as r  ;
 
-	
+	SELECT CASE WHEN s BETWEEN 1 AND NULL THEN 0 ELSE 1 END 
+	FROM generate_series(1,100) AS s 
  
