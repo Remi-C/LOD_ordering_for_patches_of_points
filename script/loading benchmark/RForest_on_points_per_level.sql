@@ -80,7 +80,65 @@ FROM riegl_pcpatch_space, pc_explode(patch) as pt
 WHERE pc_numpoints(patch) > 100
 LIMIT 1 
 
- 
+CREATE EXTENSION IF NOT EXISTS intarray
+
+ALTER TABLE benchmark_cassette_2013.riegl_pcpatch_space  ADD COLUMN class_ids int[]; 
+ALTER TABLE benchmark_cassette_2013.riegl_pcpatch_space  ADD COLUMN class_weight FLOAT[];
+CREATE INDEX ON benchmark_cassette_2013.riegl_pcpatch_space (class_ids)
+CREATE INDEX  ON benchmark_cassette_2013.riegl_pcpatch_space USING GIST (class_ids gist__int_ops); --index on intarray to allow fast search of classe(s)
+CREATE INDEX ON benchmark_cassette_2013.riegl_pcpatch_space (class_weight)
+
+
+--creating function
+DROP FUNCTION IF EXISTS rc_all_classes(ipatch PCPATCH ,  OUT class_ids int[], OUT class_weight FLOAT[]) ; 
+CREATE OR REPLACE FUNCTION rc_all_classes(ipatch PCPATCH ,  OUT class_ids int[], OUT class_weight FLOAT[]) 
+AS $$ 
+-- @brief : this function open a patch, count the points per class, then output the classes and weight in descending order
+DECLARE  
+BEGIN
+
+	WITH patch AS (
+		SELECT 1 as gid,  ipatch, pc_numpoints(ipatch) as npoints   
+	)
+	,points AS (
+		SELECT gid, class_id , round(count(*)*1.0 /npoints,5)  as weight
+		FROM  patch, pc_explode(patch.ipatch ) as pt,  pc_get(pt, 'class') as class_id
+		GROUP BY  gid, class_id,npoints
+		ORDER BY gid, class_id
+	)
+	SELECT   array_agg(class_id ORDER BY gid, weight DESC)  as class_ids, array_agg(weight ORDER BY gid, weight DESC) AS weights INTO class_ids, class_weight
+	FROM  points 
+	WHERE weight >= 0.01  
+	GROUP BY gid ;
+	 
+	 
+RETURN ; 
+END;
+$$ LANGUAGE 'plpgsql' IMMUTABLE STRICT ;
+
+	WITH patch AS (
+		SELECT * 
+		FROM benchmark_cassette_2013.riegl_pcpatch_space 
+		WHERE gid  between  960  AND 1000
+	) 
+	SELECT  gid , r.*
+	FROM  patch , rc_all_classes(patch) AS r  ; 
+
+
+		
+	WITH results AS (
+		SELECT gid, f.*
+		FROM benchmark_cassette_2013.riegl_pcpatch_space, rc_all_classes(patch) AS f 
+		WHERE gid BETWEEN 1 AND 2
+	)
+	UPDATE benchmark_cassette_2013.riegl_pcpatch_space SET (class_ids ,  class_weight)  = (r.class_ids, r.class_weight)
+	FROM results as r
+	WHERE riegl_pcpatch_space.gid = r.gid  
+  
+		
+SELECT gid,*
+FROM benchmark_cassette_2013.riegl_pcpatch_space, rc_dominant_class(patch) AS f 
+WHERE gid BETWEEN 1 AND 2
 
 --creating function
 DROP FUNCTION IF EXISTS rc_dominant_class(ipatch PCPATCH ,  OUT simplidifed_id int, OUT proba_occurency FLOAT) ; 
