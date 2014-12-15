@@ -33,14 +33,14 @@ def create_test_data(feature_number, data_size, class_list):
         
     return gid, feature, ground_truth_class ; 
     
-def create_label_equivalency():
-    """we create an equivalency list between class name and class number"""
-    label_list = [(0,"undef" ),(1,"other"),(2,"ground")\
-        ,(3,"object"),(4,"building"),(5,"vegetation")] ;
+def create_label_equivalency(labels_name, labels_number):
+    """we create an equivalency list between class name and class number""" 
         
-    labels=  np.zeros(6, dtype={'names':['class_id', 'class_name']\
-        , 'formats':['i4','a10']})  ;  
-    labels[:] =  label_list  
+    labels=  np.zeros(len(labels_name), dtype={'names':['class_id', 'class_name']\
+        , 'formats':['i4','a10']})  ; 
+    for i  in arange(len(labels)) :
+        labels['class_id'][i] = labels_number[i]
+        labels['class_name'][i] = labels_name[i]  
     return labels; 
 
 def preprocess_data(X): 
@@ -102,8 +102,10 @@ def computing_success_per_class(result,classes_,plot_directory):
             
 
 def plot_result_per_class(g2,name,classes_,plot_directory): 
-    import matplotlib.pyplot as plt
+    import matplotlib; 
     matplotlib.use('Agg') ;
+    import matplotlib.pyplot as plt
+    
     plt.clf()
     plt.cla()
     plt.close()  
@@ -127,8 +129,9 @@ def plot_result_per_class(g2,name,classes_,plot_directory):
 
 def print_confusion_matrix(result, labels, classes_,plot_directory):
     classes = classes_.astype(int)
-    import matplotlib.pyplot as plt
+    import matplotlib; 
     matplotlib.use('Agg') ;
+    import matplotlib.pyplot as plt 
     from sklearn.metrics import confusion_matrix ; #evaluating confusion matrix
     
     plt.clf()
@@ -145,8 +148,8 @@ def print_confusion_matrix(result, labels, classes_,plot_directory):
     plt.title('Confusion matrix of the classifier')
     fig.colorbar(cax, cmap = plt.get_cmap('YlOrBr') )
     
-    ax.set_xticklabels([''] + list(labels[classes]['class_name']) )
-    ax.set_yticklabels([''] + list(labels[classes]['class_name']) )
+    ax.set_xticklabels([''] + list(labels['class_name']) )
+    ax.set_yticklabels([''] + list(labels['class_name']) )
     plt.xlabel('Predicted')
     plt.ylabel('True') 
     for i, cas in enumerate(cm):
@@ -169,7 +172,7 @@ def Rforest_learn_predict(gid, X, Y,labels, k_folds, random_forest_trees ,plot_d
     clf = RandomForestClassifier(random_forest_trees, criterion="entropy" ,min_samples_leaf=20) ; 
     
     #cutting the set into 10 pieces, then propossing 10 partiion of 9(trainng)+1(test) data
-    kf_total = cross_validation.KFold(len(X), n_folds = k_folds, indices = True, shuffle = True, random_state = 4) ;
+    kf_total = cross_validation.KFold(len(X), n_folds = k_folds, shuffle = True, random_state = 4) ;
     result = pd.DataFrame() ;
     feature_importances = [] ;
     for i ,(train, test)  in enumerate(kf_total) :  
@@ -221,7 +224,6 @@ def RForest_learn_predict_pg(gids,feature_iar,gt_classes,labels, k_folds,random_
     gids = np.array(gids);
     gt_classes = np.array(gt_classes)
     #plpy.notice('toto') 
-    print feature.dtype
     feature[np.isnan(feature)]=0 ; 
     return Rforest_learn_predict(gids
         ,feature
@@ -235,11 +237,12 @@ def RForest_learn_predict_pg_test():
     #param 
     nfeature = 3
     n_obs = 1000 ; 
-    class_list = [2,4,5]
+    class_list = [1,2,3,4,5,6,7]
+    labels = ['FF1', 'FF2', 'FF3', 'FO2', 'FO3', 'LA6', 'NoC']
     k_folds = 10
     random_forest_ntree = 10;
-    plot_directory = [];
-    labels = create_label_equivalency() ;
+    plot_directory = '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/vosges';
+
     #creating input of function
     gids = np.arange(13,n_obs+13);
     feature_iar = np.random.rand(nfeature*n_obs)*10 ;
@@ -248,15 +251,22 @@ def RForest_learn_predict_pg_test():
         gt_classes[i] = np.random.choice(class_list) ;
     
     #
-    gids=  [3641, 3642, 3643, 3644, 3645, 3646, 3647, 3648, 3649, 7207, 249840, 249844, 249873, 249874, 249899, 249932, 249941, 249965, 249983, 249996]; 
-    feature_iar =  [4.0, 16.0, 64.0, 264.0, 4.0, 1.0, -2.212, 0.105, -4.323, 1.0, 4.0, 16.0, 64.0, 258.0, 4.0, 1.0, -2.191, 0.103, -4.5, 1.0, 4.0, 16.0, 64.0, 256.0, 4.0, 1.0, -2.111, 0.102, -4.061, 1.0, 4.0, 16.0, 64.0, 258.0, 4.0, 1.0, -2.089, 0.105, -3.601, 1.0, 4.0, 16.0, 64.0, 253.0, 4.0, 0.999, -2.082, 0.103, -3.959, 1.0, 4.0, 16.0, 64.0, 256.0, 4.0, 0.999, -2.068, 0.107, -3.561, 1.0, 6.0, 21.0, 79.0, 299.0, 4.0, 0.999, -2.058, 0.131, -3.879, 1.0, 4.0, 16.0, 64.0, 264.0, 4.0, 0.999, -2.045, 0.115, -4.353, 1.0, 6.0, 19.0, 89.0, 290.0, 4.0, 0.999, -2.036, 0.133, -4.709, 1.0, 2.0, 12.0, 30.0, None, 4.0, 0.998, -0.52, 0.06, -3.252, 1.0, 6.0, 17.0, 9.0, None, 5.0, 0.869, 4.314, 0.449, -11.238, 1.114, 3.0, 11.0, 9.0, None, 5.0, 0.96, 6.665, 0.169, -9.533, 1.119, 4.0, 7.0, 2.0, None, 5.0, 0.602, 5.788, 0.145, -14.108, 2.0, 8.0, 9.0, 4.0, None, 5.0, 0.992, 7.096, 0.359, -13.102, 2.033, 6.0, 10.0, 3.0, None, 5.0, 0.855, 2.142, 0.302, -14.109, 2.476, 8.0, 27.0, 73.0, 115.0, 5.0, 0.996, 3.131, 0.719, -8.001, 1.082, 7.0, 24.0, 26.0, 17.0, 5.0, 0.985, 3.155, 0.422, -10.603, 1.124, 7.0, 15.0, 14.0, 7.0, 5.0, 0.933, 5.888, 0.276, -12.079, 1.235, 3.0, 12.0, 28.0, 24.0, 5.0, 0.417, 2.575, 0.395, -10.184, 1.077, 6.0, 18.0, 11.0, None, 5.0, 0.807, -0.163, 0.479, -11.312, 1.704] ; 
-    gt_classes =[4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5] ;  
+    gids=  [8736, 8737, 8738, 8739, 8742, 8743, 8744, 8746, 8748, 8749]
+    feature_iar = [0.0, 0.0, 0.0, 0.0, 1.0, 28.0, 2.0, 593.17, 0.0, 2.0, 4.0, 0.0, 0.0, 1.0, 36.511, 1.0, 592.176, 7.52, 0.0, 0.0, 0.0, 0.0, 1.0, 46.0, 1.0, 598.33, 0.0, 4.0, 23.0, 91.0, 347.0, 1.0, 33.2, 1.0, 585.271, 22.89, 6.0, 36.0, 189.0, 517.0, 1.0, 15.42, 2.0, 616.146, 39.41, 7.0, 37.0, 171.0, 497.0, 1.0, 13.532, 2.0, 607.817, 46.73, 6.0, 33.0, 155.0, 360.0, 1.0, 14.62, 2.0, 596.008, 42.09, 3.0, 29.0, 99.0, 255.0, 1.0, 11.295, 2.0, 572.784, 45.55, 3.0, 30.0, 118.0, 274.0, 1.0, 12.154, 2.0, 517.455, 49.62, 3.0, 28.0, 110.0, 278.0, 0.99, 11.016, 2.0, 495.071, 50.03] ; 
+    gt_classes =[4, 4, 4, 4, 3, 3, 3, 2, 1, 1];  
+    labels_name = ['FF1', 'FF2', 'FF3', 'NoC']
     random_forest_ntree = 10 ; 
     
+    labels = create_label_equivalency(labels_name,class_list ) ;
+    print class_list;
+    print labels_name
+    print labels
     #launching function
     result = RForest_learn_predict_pg(gids,feature_iar,gt_classes,labels,k_folds,random_forest_ntree, plot_directory)
-    print result;
     return result ;
     
     
-RForest_learn_predict_pg_test() 
+#RForest_learn_predict_pg_test()
+ 
+
+    
