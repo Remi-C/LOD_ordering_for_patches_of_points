@@ -130,8 +130,7 @@ q := format('
 		 RETURN   ;
 	END;
 $$ LANGUAGE plpgsql IMMUTABLE CALLED ON NULL INPUT ;
- 
-SELECT 100.0/38
+  
 COPY ( 
 	--WITH patch AS ( 
 		SELECT round(PC_Get((pt).point,'X'),3)  as x
