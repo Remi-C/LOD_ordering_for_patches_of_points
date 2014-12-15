@@ -37,7 +37,7 @@ WITH CSV  HEADER DELIMITER  ';'
 
 
 SELECT *
-FROM benchmark_classification
+FROM  benchmark_classification
  
  -- 0 undef
  -- 1 other
@@ -57,7 +57,7 @@ DECLARE
 BEGIN
 	--keep only 3 first digits 
 	 
-	SELECT CASE WHEN id_i = 202060000 then 5 --vegetation
+	SELECT CASE WHEN id_i = 202060000 OR id_i/1000000 = 304 then 5 --vegetation
 		WHEN id_i = 203000000  THEN 4 --building
 		WHEN id_i = 0 THEN 0
 		WHEN id_i = 100000000 THEN 1 --other
@@ -302,6 +302,7 @@ import pandas as pd;
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier;
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report 
 
 
 ##########
@@ -415,6 +416,10 @@ plt.clf()
 plt.cla()
 plt.close() 
 
+plpy.notice('toto')
+rep =  classification_report(result['ground_truth_class'].values, result['class_chosen'].values ) 
+plpy.notice(rep); 
+
 to_be_returned = np.column_stack(((np.trunc(mean_result.to_records(index=True)["class_chosen"])).astype(int),mean_result.to_records(index=True)["is_correct"] ))
 plpy.notice(type(to_be_returned));
 return to_be_returned.tolist();
@@ -526,15 +531,15 @@ CREATE INDEX ON vegetation_pointcloud (gid);
 			 FROM benchmark_cassette_2013.riegl_pcpatch_space 
 			WHERE points_per_level IS NOT NULL
 				AND dominant_simplified_class IS NOT NULL
-			 UNION ALL
-			 SELECT gid  ,'tmob' AS src ,points_per_level 
-				, 	dominant_simplified_class  
-					--CASE WHEN  dominant_simplified_class !=2 THEN 0 ELSE  dominant_simplified_class END
-				,proba_occurency 
-				,random() as rand
-			 FROM acquisition_tmob_012013.riegl_pcpatch_space 
-			 WHERE points_per_level IS NOT NULL  
-				AND dominant_simplified_class IS NOT NULL
+			--  UNION ALL
+-- 			 SELECT gid  ,'tmob' AS src ,points_per_level 
+-- 				, 	dominant_simplified_class  
+-- 					--CASE WHEN  dominant_simplified_class !=2 THEN 0 ELSE  dominant_simplified_class END
+-- 				,proba_occurency 
+-- 				,random() as rand
+-- 			 FROM acquisition_tmob_012013.riegl_pcpatch_space 
+-- 			 WHERE points_per_level IS NOT NULL  
+-- 				AND dominant_simplified_class IS NOT NULL
 	)
 	,count_per_class as (
 		SELECT dominant_simplified_class , count(*) AS  obs_per_class
@@ -563,4 +568,6 @@ CREATE INDEX ON vegetation_pointcloud (gid);
 	) 
 	SELECT  r.* 
 	FROM array_agg,rc_random_forest_cross_valid_per_class(gid,f1,f2,f3,f4,gt_class,proba,10,30) as r ; 
-		
+
+
+--

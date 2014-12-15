@@ -176,6 +176,7 @@ import pandas as pd;
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier;
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report 
 
 
 ##########
@@ -289,7 +290,8 @@ plt.clf()
 plt.cla()
 plt.close() 
 
-
+rep =  classification_report(result['ground_truth_class'].values, result['class_chosen'].values ) 
+plpy.notice(rep); 
 #returning: 
 re = np.column_stack((result['gid'],result['ground_truth_class'].astype(int), result['class_chosen'].astype(int), result['proba_chosen']  )) ;
 plpy.notice(re);
@@ -298,11 +300,7 @@ for a in re:
 	to_be_returned.append(   ( int(a[0]),  int(a[1]), int(a[2]), float(a[3]) ) );
 	
 #to_be_returned = np.column_stack(((np.trunc(mean_result.to_records(index=True)["class_chosen"])).astype(int),mean_result.to_records(index=True)["is_correct"] ))
-
-
-plpy.notice(type(to_be_returned));
-plpy.notice(to_be_returned);
-
+ 
 return to_be_returned ;
 $$ LANGUAGE plpythonu IMMUTABLE STRICT; 
 
@@ -318,16 +316,16 @@ WITH patch_to_use AS (
 			 FROM benchmark_cassette_2013.riegl_pcpatch_space 
 			WHERE points_per_level IS NOT NULL
 				AND dominant_simplified_class IS NOT NULL
-			 UNION ALL
-			 SELECT gid  ,'tmob' AS src ,points_per_level 
-				, 	dominant_simplified_class  
-					--CASE WHEN  dominant_simplified_class !=2 THEN 0 ELSE  dominant_simplified_class END
-				,patch_height,height_above_laser,patch_area,reflectance_avg,nb_of_echo_avg
-				,proba_occurency 
-				,random() as rand
-			 FROM acquisition_tmob_012013.riegl_pcpatch_space 
-			 WHERE points_per_level IS NOT NULL  
-				AND dominant_simplified_class IS NOT NULL
+-- 			 UNION ALL
+-- 			 SELECT gid  ,'tmob' AS src ,points_per_level 
+-- 				, 	dominant_simplified_class  
+-- 					--CASE WHEN  dominant_simplified_class !=2 THEN 0 ELSE  dominant_simplified_class END
+-- 				,patch_height,height_above_laser,patch_area,reflectance_avg,nb_of_echo_avg
+-- 				,proba_occurency 
+-- 				,random() as rand
+-- 			 FROM acquisition_tmob_012013.riegl_pcpatch_space 
+-- 			 WHERE points_per_level IS NOT NULL  
+-- 				AND dominant_simplified_class IS NOT NULL
 	)
 	,count_per_class as (
 		SELECT dominant_simplified_class , count(*) AS  obs_per_class
@@ -358,8 +356,25 @@ WITH patch_to_use AS (
 				--AND (dominant_simplified_class=4 AND random() <0.83) = false
 				 NOT (ptu.dominant_simplified_class = ANY (ARRAY[0, 1]))
 				AND rand  < 1000.0/(  obs_per_class::float) --this allows to have approx 1000 obs per class 
-				AND proba_occurency >0.95
-				and rand <0.1
-	) 
-	SELECT  r.* 
-	FROM array_agg,rc_random_forest_cross_valid_per_class_all_features(gid,f1,f2,f3,f4,f5,f6,f7,f8,f9,gt_class,proba,10,30) as r ; 
+				--AND proba_occurency >0.95
+				--and rand <0.1
+	)
+	,results AS (
+		SELECT  r.* 
+		FROM array_agg,rc_random_forest_cross_valid_per_class_all_features(gid,f1,f2,f3,f4,f5,f6,f7,f8,f9,gt_class,proba,10,100) as r 
+	)
+	,res_in_points AS (
+		SELECT gt_class,'correct' as res, sum(pc_numpoints(patch)) as npoints
+		FROM results 
+			NATURAL JOIN benchmark_cassette_2013.riegl_pcpatch_space  as p
+			WHERE results.gt_class = results.prediction
+			GROUP BY gt_class
+		UNION ALL 
+		SELECT gt_class, 'error' as res, sum(pc_numpoints(patch))
+		FROM results 
+			NATURAL JOIN benchmark_cassette_2013.riegl_pcpatch_space  as p
+			WHERE results.gt_class != results.prediction
+			GROUP BY gt_class
+	)
+	SELECT gt_class, res, npoints/ (SELECT sum(npoints) FROM res_in_points WHERE res_in_points.gt_class = rip.gt_class) 
+	FROM res_in_points as rip
