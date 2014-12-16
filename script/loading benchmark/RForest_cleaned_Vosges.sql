@@ -152,7 +152,7 @@ where ( dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL)
 
 */
 
-
+LOAD '/usr/lib/postgresql/9.3/lib/plpython2.so'  ;
 DROP FUNCTION IF EXISTS test_python() ;
 create FUNCTION   test_python() 
 returns boolean AS
@@ -161,6 +161,12 @@ import sklearn;
 reload(sklearn)
 import pandas
 reload(pandas)
+import sys
+sys.path.insert(0, '/media/dca349df-2074-430b-b9b8-a4cc4684975b/test_pg_lidar/LOD')
+import Rforest_on_patch;
+reload(Rforest_on_patch)
+import matplotlib 
+matplotlib.use('Agg') 
 from sklearn.preprocessing import StandardScaler
 return True; 
 $$ LANGUAGE plpythonu IMMUTABLE STRICT; 
@@ -170,9 +176,9 @@ FROM test_python() ;
 
 	--a plpython predicting gt_class, cross_validation , result per class 
 	--gids,feature_iar,gt_classes    ,labels,class_list,k_folds,random_forest_ntree, plot_directory
-DROP FUNCTION IF EXISTS rc_random_forest_train_predict( gids int[], feature_iar FLOAT[], gt_classes int[]
+DROP FUNCTION IF EXISTS rc_random_forest_train_predict( gids int[], feature_iar FLOAT[], gt_classes int[], weight FLOAT[]
 	, class_list int[], labels text[], k_folds int , random_forest_ntree int , plot_directory text );
-CREATE FUNCTION rc_random_forest_train_predict( gids int[], feature_iar FLOAT[], gt_classes int[]
+CREATE FUNCTION rc_random_forest_train_predict( gids int[], feature_iar FLOAT[], gt_classes int[], weight FLOAT[]
 	, class_list int[], labels text[], k_folds int , random_forest_ntree int , plot_directory text )
 RETURNS TABLE(gid int, gt_class INT, prediction INT, confidence FLOAT )--TABLE (gid int, predicted_class int, confidence float)
 AS $$"""
@@ -181,20 +187,31 @@ It returns the prediction
 """ 
 import sys
 sys.path.insert(0, '/media/dca349df-2074-430b-b9b8-a4cc4684975b/test_pg_lidar/LOD')
-plpy.notice(labels)
+#plpy.notice(gids)
+#plpy.notice(feature_iar)
+#plpy.notice(gt_classes)
+#plpy.notice(labels)
+#plpy.notice(class_list)
+#plpy.notice(weight)
 import matplotlib 
 matplotlib.use('Agg')
 import Rforest_on_patch;
 reload(Rforest_on_patch)
 import numpy as np
 
-#constructing input of the python function
-result = Rforest_on_patch.RForest_learn_predict_pg(gids,feature_iar,gt_classes,labels, k_folds,random_forest_ntree, plot_directory) ; 
 
+
+#constructing input of the python function
+result,report,feature_importancy = Rforest_on_patch.RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels,class_list, k_folds,random_forest_ntree, plot_directory) ; 
+#plpy.notice(result)
+ 
+plpy.notice(np.around(np.mean(feature_importancy,axis =0),2))
+plpy.notice(report)
 
 #returning: 
-re = np.column_stack((result['gid'],result['ground_truth_class'].astype(int), result['class_chosen'].astype(int), result['proba_chosen']  )) ;
+#re = np.column_stack((result['gid'],result['ground_truth_class'].astype(int), result['class_chosen'].astype(int), result['proba_chosen']  )) ;
 #plpy.notice(re);
+re = result
 to_be_returned = [] ;
 for a in re:
 	to_be_returned.append(   ( int(a[0]),  int(a[1]), int(a[2]), float(a[3]) ) );
@@ -204,44 +221,66 @@ $$ LANGUAGE plpythonu IMMUTABLE STRICT;
  
  
 
-
-
+DROP TABLE IF EXISTS predicted_result_with_ground_truth ; 
+create table predicted_result_with_ground_truth AS 
 	WITH patch_to_use AS (
-			 SELECT  gid , 	substring(gt_classes[1] from 1 for 3) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
+			 SELECT  gid , 	substring(gt_classes[1] from 1 for 2) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
 				,points_per_level
 				,random() as rand
 			 FROM las_vosges_proxy     
 			WHERE  gt_weight[1] > 0.9
 				AND points_per_level IS NOT NULL
-			LIMIT 1000
+				--ORDER BY gid ASC
+				order by rand
+			LIMIT 500
 	)
 	,count_per_class as (
 		SELECT sgt_class, row_number() over(ORDER BY sgt_class ASC) AS n_class_id , count(*) AS  obs_per_class
-		FROM  patch_to_use 
-		GROUP BY sgt_class	
+		FROM  patch_to_use  
+		GROUP BY sgt_class
+		
 	) 
 	, array_agg AS (
 		SELECT array_agg(gid ORDER BY gid ASC) AS gids
 			,array_agg_custom( 
-				ARRAY[points_per_level[2],points_per_level[3],points_per_level[4],points_per_level[5], gt_weight,avg_intensity, avg_tot_return_number, avg_z, avg_height ] 
+				ARRAY[
+					COALESCE(points_per_level[2],0)
+					,COALESCE(points_per_level[3],0)
+					,COALESCE(points_per_level[4],0)
+					,COALESCE(points_per_level[5],0)
+					--, gt_weight
+					,avg_intensity
+					, avg_tot_return_number
+					, avg_z
+					, avg_height ] 
 				ORDER BY gid ASC ) AS feature_arr 
 			, array_agg(    cc.n_class_id::int  ORDER BY gid ASC) as gt_class
+			, array_agg(round(1/(cc.obs_per_class*1.0),10) ORDER BY gid aSC) AS weight
 		FROM patch_to_use
 			LEFT OUTER JOIN count_per_class AS cc ON (cc.sgt_class =  patch_to_use.sgt_class)
 	)
 	--,result_classif AS (
-		SELECT  r.gid, r.gt_class, r.prediction, r.confidence 
+		SELECT  r.gid, r.gt_class, r.prediction, r.confidence , prediction = r.gt_class as is_correct
 		FROM array_agg
 			,rc_random_forest_train_predict(
 				gids
 				,feature_arr
 				,gt_class
+				, weight
 				, (SELECT array_agg(n_class_id::int ORDER BY n_class_id ) AS n_class_id FROM count_per_class)
 				,  (SELECT array_agg(sgt_class ORDER BY n_class_id ) AS sgt_class FROM count_per_class)
 				,  10
-				, 10
-				, '' ) as r   
-	
+				, 100
+				, '/tmp' ) as r   ; 
+
+DROP TABLE IF EXISTS visu_classif_vosges  ; 
+CREATE TABLE visu_classif_vosges AS 
+SELECT predicted_result_with_ground_truth.*, lvp.geom
+FROM predicted_result_with_ground_truth
+	NATURAL JOIN las_vosges_proxy as lvp ; 
+	CREATE INDEX ON visu_classif_vosges USING GIST(geom) ;
+	CREATE INDEX ON visu_classif_vosges (gid) ; 
+
 /*
 SELECT count(*)
 FROM benchmark_cassette_2013.riegl_pcpatch_space 
