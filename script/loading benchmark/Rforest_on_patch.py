@@ -35,10 +35,10 @@ def create_test_data(feature_number, data_size, class_list):
     
 def create_label_equivalency(labels_name, labels_number):
     """we create an equivalency list between class name and class number""" 
-        
+    import numpy as np; 
     labels=  np.zeros(len(labels_name), dtype={'names':['class_id', 'class_name']\
-        , 'formats':['i4','a10']})  ; 
-    for i  in arange(len(labels)) :
+        , 'formats':['i4','a10']})  ;   
+    for i  in np.arange(0,len(labels_name)):
         labels['class_id'][i] = labels_number[i]
         labels['class_name'][i] = labels_name[i]  
     return labels; 
@@ -51,11 +51,12 @@ def preprocess_data(X):
     #scaler.transform(X);
     return scaler;
     
-def train_RForest_with_kfold(i,train, test, gid,X,Y,scaler,clf,result,feature_importances):
+def train_RForest_with_kfold(i,train, test, gid,X,Y,weight,scaler,clf,result,feature_importances):
+    
    # creating data for train and test
-    X_train, X_test, Y_train, Y_test = X[train],X[test], Y[train], Y[test] ; 
-    #learning
-    clf.fit(X_train,Y_train) ; 
+    X_train, X_test, Y_train, Y_test, Weight_train, Weight_test = X[train],X[test], Y[train], Y[test], weight[train], weight[test] ; 
+    #learning 
+    clf.fit(X_train,Y_train,Weight_train) ; 
     #predicting    
     tmp_prob = clf.predict_proba(X_test) ; 
     
@@ -69,10 +70,10 @@ def train_RForest_with_kfold(i,train, test, gid,X,Y,scaler,clf,result,feature_im
 
     #grouping for score per class
     proba_class_chosen = np.column_stack( \
-    (max_values,chosen_class, chosen_class == Y_test,Y_test ,np.array(gid)[test]   ) ) ; 
+    (max_values,chosen_class, chosen_class == Y_test,Y_test ,np.array(gid)[test],Weight_test    ) ) ; 
     
     #constructinig the result data frame    
-    df = pd.DataFrame(proba_class_chosen, columns = ("proba_chosen","class_chosen","is_correct","ground_truth_class" ,"gid")) ; 
+    df = pd.DataFrame(proba_class_chosen, columns = ("proba_chosen","class_chosen","is_correct","ground_truth_class" ,"gid","weight")) ; 
     if (i==0): 
         result = result.append(df, ignore_index=True) ;
     else:
@@ -164,8 +165,8 @@ def print_confusion_matrix(result, labels, classes_,plot_directory):
     plt.cla()
     plt.close() 
 
-def Rforest_learn_predict(gid, X, Y,labels, k_folds, random_forest_trees ,plot_directory): 
- 
+def Rforest_learn_predict(gid, X, Y,weight, labels, k_folds, random_forest_trees ,plot_directory): 
+    from sklearn.metrics import classification_report
     scaler =  preprocess_data(X); 
     
     #creating the random forest object
@@ -176,7 +177,7 @@ def Rforest_learn_predict(gid, X, Y,labels, k_folds, random_forest_trees ,plot_d
     result = pd.DataFrame() ;
     feature_importances = [] ;
     for i ,(train, test)  in enumerate(kf_total) :  
-        result = train_RForest_with_kfold(i,train, test, gid,X,Y,scaler,clf,result,feature_importances) ;
+        result = train_RForest_with_kfold(i,train, test, gid,X,Y,weight,scaler,clf,result,feature_importances) ;
     
 
     #plotting the result for each class
@@ -186,10 +187,12 @@ def Rforest_learn_predict(gid, X, Y,labels, k_folds, random_forest_trees ,plot_d
     if len(plot_directory)!=0:
         print_confusion_matrix(result, labels, clf.classes_,plot_directory) 
     
+    report = classification_report( result['ground_truth_class'],result['class_chosen'],target_names = labels,sample_weight=result['weight'])  ;
+    
     return np.column_stack((result['gid']
         ,result['ground_truth_class'].astype(int)
         , result['class_chosen'].astype(int)
-        , result['proba_chosen']  )) ;
+        , result['proba_chosen']  )),report,feature_importances;
     
 def Rforest_learn_predict_test():
         
@@ -208,7 +211,7 @@ def Rforest_learn_predict_test():
     result = Rforest_learn_predict(gid, X, Y,labels,class_list, k_folds, random_forest_trees ,plot_directory);
     print result ;
 
-def RForest_learn_predict_pg(gids,feature_iar,gt_classes,labels, k_folds,random_forest_ntree, plot_directory):
+def RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels_name,class_list, k_folds,random_forest_ntree, plot_directory):
     """Compute random forest classifiers using feature_iar and gt_classes ground trhuth. Divide the data set into kfolds to perform the operation K times
     @param gids is a int[n]
     @param feature_iar is a float[m x n], where m is the number of feature, and the matrix is wirtten row by row
@@ -225,9 +228,13 @@ def RForest_learn_predict_pg(gids,feature_iar,gt_classes,labels, k_folds,random_
     gt_classes = np.array(gt_classes)
     #plpy.notice('toto') 
     feature[np.isnan(feature)]=0 ; 
+    
+    labels = create_label_equivalency(labels_name,class_list )
+    weight_iar = np.array(weight)
     return Rforest_learn_predict(gids
         ,feature
         ,gt_classes
+        ,weight_iar
         ,labels
         , k_folds
         , random_forest_ntree 
@@ -251,18 +258,16 @@ def RForest_learn_predict_pg_test():
         gt_classes[i] = np.random.choice(class_list) ;
     
     #
-    gids=  [8736, 8737, 8738, 8739, 8742, 8743, 8744, 8746, 8748, 8749]
+    gids= [8736, 8737, 8738, 8739, 8742, 8743, 8744, 8746, 8748, 8749]
     feature_iar = [0.0, 0.0, 0.0, 0.0, 1.0, 28.0, 2.0, 593.17, 0.0, 2.0, 4.0, 0.0, 0.0, 1.0, 36.511, 1.0, 592.176, 7.52, 0.0, 0.0, 0.0, 0.0, 1.0, 46.0, 1.0, 598.33, 0.0, 4.0, 23.0, 91.0, 347.0, 1.0, 33.2, 1.0, 585.271, 22.89, 6.0, 36.0, 189.0, 517.0, 1.0, 15.42, 2.0, 616.146, 39.41, 7.0, 37.0, 171.0, 497.0, 1.0, 13.532, 2.0, 607.817, 46.73, 6.0, 33.0, 155.0, 360.0, 1.0, 14.62, 2.0, 596.008, 42.09, 3.0, 29.0, 99.0, 255.0, 1.0, 11.295, 2.0, 572.784, 45.55, 3.0, 30.0, 118.0, 274.0, 1.0, 12.154, 2.0, 517.455, 49.62, 3.0, 28.0, 110.0, 278.0, 0.99, 11.016, 2.0, 495.071, 50.03] ; 
-    gt_classes =[4, 4, 4, 4, 3, 3, 3, 2, 1, 1];  
+    gt_classes =[4, 4, 4, 4, 3, 3, 3, 2, 1, 1] 
     labels_name = ['FF1', 'FF2', 'FF3', 'NoC']
+    class_list =[1, 2, 3, 4]
+    weight =  [0.25, 0.25, 0.25, 0.25, 0.3333, 0.3333, 0.3333, 1.0, 0.5, 0.5]
     random_forest_ntree = 10 ; 
-    
-    labels = create_label_equivalency(labels_name,class_list ) ;
-    print class_list;
-    print labels_name
-    print labels
+      
     #launching function
-    result = RForest_learn_predict_pg(gids,feature_iar,gt_classes,labels,k_folds,random_forest_ntree, plot_directory)
+    result = RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels_name,class_list,k_folds,random_forest_ntree, plot_directory)
     return result ;
     
     
