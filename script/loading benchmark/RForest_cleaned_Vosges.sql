@@ -186,7 +186,8 @@ This function use random forest on an input vector to learn with k-1/k of the ve
 It returns the prediction
 """ 
 import sys
-sys.path.insert(0, '/media/dca349df-2074-430b-b9b8-a4cc4684975b/test_pg_lidar/LOD')
+#sys.path.insert(0, '/media/dca349df-2074-430b-b9b8-a4cc4684975b/test_pg_lidar/LOD')
+sys.path.insert(0, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script/loading benchmark')
 #plpy.notice(gids)
 #plpy.notice(feature_iar)
 #plpy.notice(gt_classes)
@@ -221,10 +222,10 @@ $$ LANGUAGE plpythonu IMMUTABLE STRICT;
  
  
 
-DROP TABLE IF EXISTS predicted_result_with_ground_truth ; 
-create table predicted_result_with_ground_truth AS 
+DROP TABLE IF EXISTS predicted_result_with_ground_truth_50k_3_classes_only_dim ; 
+create table predicted_result_with_ground_truth_50k_3_classes_only_dim AS 
 	WITH patch_to_use AS (
-			 SELECT  gid , 	substring(gt_classes[1] from 1 for 2) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
+			 SELECT  gid , 	substring(gt_classes[1] from 1 for 1) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
 				,points_per_level
 				,random() as rand
 			 FROM las_vosges_proxy     
@@ -232,7 +233,7 @@ create table predicted_result_with_ground_truth AS
 				AND points_per_level IS NOT NULL
 				--ORDER BY gid ASC
 				order by rand
-			LIMIT 500
+			LIMIT 50000
 	)
 	,count_per_class as (
 		SELECT sgt_class, row_number() over(ORDER BY sgt_class ASC) AS n_class_id , count(*) AS  obs_per_class
@@ -247,12 +248,12 @@ create table predicted_result_with_ground_truth AS
 					COALESCE(points_per_level[2],0)
 					,COALESCE(points_per_level[3],0)
 					,COALESCE(points_per_level[4],0)
-					,COALESCE(points_per_level[5],0)
-					--, gt_weight
-					,avg_intensity
-					, avg_tot_return_number
-					, avg_z
-					, avg_height ] 
+					,COALESCE(points_per_level[5],0) 
+					--,avg_intensity
+					--, avg_tot_return_number
+					--, avg_z
+					--, avg_height 
+					] 
 				ORDER BY gid ASC ) AS feature_arr 
 			, array_agg(    cc.n_class_id::int  ORDER BY gid ASC) as gt_class
 			, array_agg(round(1/(cc.obs_per_class*1.0),10) ORDER BY gid aSC) AS weight
