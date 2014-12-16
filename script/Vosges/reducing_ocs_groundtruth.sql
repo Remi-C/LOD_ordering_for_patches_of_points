@@ -16,10 +16,33 @@ FROM ocs."Export_Foret67"
 WHERE st_isvalid(geom)=false
 LIMIT 1;
 
+
+
+
+DROP TABLE IF EXISTS unioned_sgeom ;
+CREATE TABLE ocs.unioned_sgeom AS 
+SELECT row_number() over() as gid,d.geom as geom
+FROM 
+	(
+		SELECT ST_Union(ST_Buffer(sgeom,25)) as un
+		FROM ocs."Export_Foret67"
+		) AS sub
+		, st_dump(un) as d
+
 DROP TABLE IF EXISTS ground_truth_area ;
 CREATE TABLE ocs.ground_truth_area AS 
-SELECT row_number() over() as gid, ST_ConcaveHull(ST_Union( sgeom ),0.9, false)
-FROM ocs."Export_Foret67"  
+SELECT row_number() over() as gid,  ST_Buffer(ST_Union( ST_Buffer(geom,500) ),-500)  as geom 
+FROM unioned_sgeom  ;
+UPDATE ground_truth_area SET geom = ST_ExteriorRing(ST_GeometryN(geom,1))
+UPDATE ground_truth_area SET geom = ST_MakePolygon(geom)
+
+
+DROP TABLE IF EXISTS ocs.ground_truth_area_manual ;
+CREATE TABLE ocs.ground_truth_area_manual (
+	gid serial PRIMARY KEY
+	, geom geometry(polygon, 931008)
+) ; 
+CREATE INDEX ON ocs.ground_truth_area_manual USING GIST (geom)
 
 ALTER  TABLE ocs."Export_Foret67"   ADD column sgeom  geometry(Polygon,931008);
 UPDATE ocs."Export_Foret67" SET sgeom = ST_SimplifyPreserveTopology(geom, 20);
