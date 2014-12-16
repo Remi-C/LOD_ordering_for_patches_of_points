@@ -85,7 +85,7 @@ def train_RForest_with_kfold(i,train, test, gid,X,Y,weight,scaler,clf,result,fea
     feature_importances.append(clf.feature_importances_) ;
     return result
 
-def computing_success_per_class(result,classes_,plot_directory): 
+def computing_success_per_class(result,classes_,labels,plot_directory): 
     grouped_result = result.groupby(["class_chosen"])   
     mean_result  = grouped_result.aggregate(np.mean) ;   
     grouped_proba = grouped_result['proba_chosen',"is_correct","ground_truth_class"]
@@ -99,18 +99,21 @@ def computing_success_per_class(result,classes_,plot_directory):
         g2['x_axis'] =1- g2['proba_chosen']  ;
         
         if len(plot_directory) != 0:#empty
-            plot_result_per_class(g2,name,classes_,plot_directory);
+            plot_result_per_class(g2,name,classes_,labels,plot_directory);
             
 
-def plot_result_per_class(g2,name,classes_,plot_directory): 
+def plot_result_per_class(g2,name,classes_,labels,plot_directory): 
     import matplotlib; 
     matplotlib.use('Agg') ;
     import matplotlib.pyplot as plt
+    import datetime;
+    now = datetime.datetime.now();
     
     plt.clf()
     plt.cla()
     plt.close()  
-    plot = g2.plot(x='x_axis', y= 'result_prediction',ylim=[-10,110], title="using prediction by descending confidence for class "+str(int(name))  )
+    classname = labels["class_name"][labels["class_id"]==name][0] 
+    plot = g2.plot(x='x_axis', y= 'result_prediction',ylim=[-10,110], title="using prediction by descending confidence for class "+str(classname)  )
     labx = plt.xlabel("1-minimal_confidence")
     laby = plt.ylabel("precision_of_prediction")
     plt.axhline(y=g2['result_prediction'].mean(), label='mean_line')
@@ -121,8 +124,9 @@ def plot_result_per_class(g2,name,classes_,plot_directory):
         +'/test_output_all_feature_'
         # + str(int( np.amax(clf.classes_)))
         # +'_against_all_'
-        +str(int(name)) 
-        +'_.jpg') ; 
+        + str(classname) 
+        + "_%i_%i_%i"%(now.day,now.hour, now.minute)
+        +'.png') ; 
     
     plt.clf()
     plt.cla()
@@ -134,14 +138,15 @@ def print_confusion_matrix(result, labels, classes_,plot_directory):
     matplotlib.use('Agg') ;
     import matplotlib.pyplot as plt 
     from sklearn.metrics import confusion_matrix ; #evaluating confusion matrix
-    
+    import datetime;
+    now = datetime.datetime.now();
     plt.clf()
     plt.close() ;
     plt.cla ; 
     
     cm = confusion_matrix(result['ground_truth_class'], result['class_chosen']) 
     cm = cm * 1.0 ;
-    preprocessing.normalize(cm, norm='l1', axis=0,copy=False)
+    preprocessing.normalize(cm, norm='l1', axis=1,copy=False)
     #plpy.notice(cm); 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -159,7 +164,9 @@ def print_confusion_matrix(result, labels, classes_,plot_directory):
     			plt.text(j-.2, i+.2, str(round(c, 3)), fontsize=12)
     plt.savefig(
         plot_directory
-        + '/test_output_all_feature_confusion_matrix_.png'
+        + '/test_output_all_feature_confusion_matrix_'
+        + "%i_%i_%i"%(now.day,now.hour, now.minute)
+        +'.png'
         )
     plt.clf()
     plt.cla()
@@ -181,13 +188,13 @@ def Rforest_learn_predict(gid, X, Y,weight, labels, k_folds, random_forest_trees
     
 
     #plotting the result for each class
-    computing_success_per_class(result,clf.classes_,plot_directory);
+    computing_success_per_class(result,clf.classes_,labels,plot_directory);
      
     #print the confusion matrix
     if len(plot_directory)!=0:
         print_confusion_matrix(result, labels, clf.classes_,plot_directory) 
     
-    report = classification_report( result['ground_truth_class'],result['class_chosen'],target_names = labels,sample_weight=result['weight'])  ;
+    report = classification_report( result['ground_truth_class'],result['class_chosen'],target_names = labels)#,sample_weight=result['weight'])  ;
     
     return np.column_stack((result['gid']
         ,result['ground_truth_class'].astype(int)
@@ -270,7 +277,7 @@ def RForest_learn_predict_pg_test():
     result = RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels_name,class_list,k_folds,random_forest_ntree, plot_directory)
     return result ;
     
-    
+
 #RForest_learn_predict_pg_test()
  
 
