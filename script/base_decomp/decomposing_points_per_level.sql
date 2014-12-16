@@ -266,7 +266,6 @@ $$ LANGUAGE 'plpgsql' IMMUTABLE STRICT ;
 
 */
 
-
 --a plpython function thatdecompose the point per level on a f_k(i) function base, where f_k(i) = (2^k)^i.
 DROP FUNCTION IF EXISTS  rc_py_RForest_regression( gid int[], feature float[], gt_weight_vect float[]);
 CREATE FUNCTION  rc_py_RForest_regression( gid int[], feature float[], gt_weight_vect float[] )
