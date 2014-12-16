@@ -222,24 +222,28 @@ $$ LANGUAGE plpythonu IMMUTABLE STRICT;
  
  
 
-DROP TABLE IF EXISTS predicted_result_with_ground_truth_50k_3_classes_only_dim ; 
-create table predicted_result_with_ground_truth_50k_3_classes_only_dim AS 
+DROP TABLE IF EXISTS predicted_result_with_ground_truth_50k_3_classes_all_dim ; 
+create table predicted_result_with_ground_truth_50k_3_classes_all_dim AS 
 	WITH patch_to_use AS (
-			 SELECT  gid , 	substring(gt_classes[1] from 1 for 1) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
+			 SELECT gid , 	substring(gt_classes[1] from 1 for 1) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
 				,points_per_level
 				,random() as rand
 			 FROM las_vosges_proxy     
-			WHERE  gt_weight[1] > 0.9
-				AND points_per_level IS NOT NULL
+			 WHERE  --gt_weight[1] > 0.9 AND
+				 points_per_level IS NOT NULL
+				AND EXISTS (
+					SELECT 1 
+					FROM ocs.ground_truth_area_manual as gta
+					WHERE ST_Intersects(gta.geom, las_vosges_proxy.geom)=true
+				)
 				--ORDER BY gid ASC
-				order by rand
+				order by rand, gid
 			LIMIT 50000
 	)
 	,count_per_class as (
 		SELECT sgt_class, row_number() over(ORDER BY sgt_class ASC) AS n_class_id , count(*) AS  obs_per_class
 		FROM  patch_to_use  
-		GROUP BY sgt_class
-		
+		GROUP BY sgt_class 
 	) 
 	, array_agg AS (
 		SELECT array_agg(gid ORDER BY gid ASC) AS gids
@@ -249,10 +253,10 @@ create table predicted_result_with_ground_truth_50k_3_classes_only_dim AS
 					,COALESCE(points_per_level[3],0)
 					,COALESCE(points_per_level[4],0)
 					,COALESCE(points_per_level[5],0) 
-					--,avg_intensity
-					--, avg_tot_return_number
-					--, avg_z
-					--, avg_height 
+					,avg_intensity
+					, avg_tot_return_number
+					, avg_z
+					, avg_height 
 					] 
 				ORDER BY gid ASC ) AS feature_arr 
 			, array_agg(    cc.n_class_id::int  ORDER BY gid ASC) as gt_class
@@ -272,12 +276,12 @@ create table predicted_result_with_ground_truth_50k_3_classes_only_dim AS
 				,  (SELECT array_agg(sgt_class ORDER BY n_class_id ) AS sgt_class FROM count_per_class)
 				,  10
 				, 100
-				, '/tmp' ) as r   ; 
+				, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/vosges' ) as r   ; 
 
 DROP TABLE IF EXISTS visu_classif_vosges  ; 
 CREATE TABLE visu_classif_vosges AS 
-SELECT predicted_result_with_ground_truth.*, lvp.geom
-FROM predicted_result_with_ground_truth
+SELECT p.*, lvp.geom
+FROM predicted_result_with_ground_truth_50k_3_classes_all_dim as p
 	NATURAL JOIN las_vosges_proxy as lvp ; 
 	CREATE INDEX ON visu_classif_vosges USING GIST(geom) ;
 	CREATE INDEX ON visu_classif_vosges (gid) ; 
