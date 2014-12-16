@@ -10,7 +10,7 @@ WHERE pc_numpoints(patch) >=1000
 
 COPY ( 
 	WITH output_settings AS (
-		SELECT 21122 AS y_min,
+		SELECT 21122  +30 AS y_min,
 			40 AS y_length
 			,1000 as max_num_points
 	) 
@@ -30,8 +30,7 @@ COPY (
 		FROM output_settings,benchmark_cassette_2013.riegl_pcpatch_space, ST_Y(St_Centroid(patch::geometry))  as c 
 			, rc_explodeN_numbered(  patch,(max_num_points* pow((c-y_min)/y_length,3) )::int) as pt  
 				WHERE pc_numpoints(patch) >=50
-					AND c BETWEEN y_min AND y_min  + y_length 
-					AND pc_numpoints(patch) <= max_num_points* pow((c-y_min)/y_length,3)
+					AND c BETWEEN y_min AND y_min  + y_length  
 					AND (pt).ordinality  <= max_num_points* pow((c-y_min)/y_length,3) 
 		--AND patch_area > 0.9
 		--AND gid  = 4440 
