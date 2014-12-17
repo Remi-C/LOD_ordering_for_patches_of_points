@@ -5,7 +5,7 @@
 ---------------------------------------
 --We try to do best that we can we all ready made simple descriptors
 --
-SET search_path to benchmark_cassette_2013, public;
+SET search_path to benchmark_cassette_2013, vosges_2011, public;
 
 --adding descriptor
 	-- height of the patch
@@ -152,44 +152,10 @@ SELECT count(*)
 FROM riegl_pcpatch_space   
 where ( dominant_simplified_class IS NOT NULL AND points_per_level IS NOT NULL) 
 
-*/
 
 
 
-	--a plpython predicting gt_class, cross_validation , result per class 
-	--gids,feature_iar,gt_classes    ,labels,class_list,k_folds,random_forest_ntree, plot_directory
-DROP FUNCTION IF EXISTS rc_random_forest_train_predict( gids FLOAT[], feature_iar FLOAT[], gt_classes FLOAT[]
-	, class_list int[], labels text[], k_folds int , random_forest_ntree int , plot_directory text );
-CREATE FUNCTION rc_random_forest_train_predict( gids FLOAT[], feature_iar FLOAT[], gt_classes FLOAT[]
-	, class_list int[], labels text[], k_folds int , random_forest_ntree int , plot_directory text )
-RETURNS TABLE(gid int, gt_class INT, prediction INT, confidence FLOAT )--TABLE (gid int, predicted_class int, confidence float)
-AS $$
-"""
-This function use random forest on an input vector to learn with k-1/k of the vector and  predict on k.
-It returns the prediction
-""" 
-import sys
-sys.path.insert(0, '/media/sf_perso_PROJETS/lod')
-
-import Rforest_on_patch ;
-
-##########
-#parameters 
-##########
-#constructing input of the python function
-result = RForest_learn_predict_pg(gids,feature_iar,gt_classes,labels,class_list,k_folds,random_forest_ntree, plot_directory):
-
-
-#returning: 
-re = np.column_stack((result['gid'],result['ground_truth_class'].astype(int), result['class_chosen'].astype(int), result['proba_chosen']  )) ;
-#plpy.notice(re);
-to_be_returned = [] ;
-for a in re:
-	to_be_returned.append(   ( int(a[0]),  int(a[1]), int(a[2]), float(a[3]) ) );
-
-return to_be_returned ;
-$$ LANGUAGE plpythonu IMMUTABLE STRICT; 
-
+  
 
 WITH patch_to_use AS (
 			 SELECT gid ,'bench' AS src  ,points_per_level 
@@ -239,7 +205,7 @@ WITH patch_to_use AS (
 				,  10
 				, 10
 				, '/media/sf_perso_PROJETS/lod' ) as r   
-	
+	*/
 /*
 SELECT count(*)
 FROM benchmark_cassette_2013.riegl_pcpatch_space 
@@ -324,3 +290,109 @@ WITH patch_to_use AS (
 )
 TO '/media/sf_perso_PROJETS/lod/patch_with_classif_1000.csv' WITH CSV HEADER
 */
+
+
+
+/*
+
+--creating a proxy table to simplify things and make theim portable
+DROP TABLE IF EXISTS benchmark_cassette_2013.riegl_pcpatch_proxy ;
+CREATE TABLE benchmark_cassette_2013.riegl_pcpatch_proxy AS (
+select gid, points_per_level, dominant_simplified_class,proba_occurency,patch_height, height_above_laser, patch_area, reflectance_avg, nb_of_echo_avg, class_ids, class_weight, patch::geometry as geom
+from benchmark_cassette_2013.riegl_pcpatch_space   
+)
+CREATE INDEX ON benchmark_cassette_2013.riegl_pcpatch_proxy  (gid);
+CREATE INDEX ON benchmark_cassette_2013.riegl_pcpatch_proxy  (dominant_simplified_class);
+CREATE INDEX ON benchmark_cassette_2013.riegl_pcpatch_proxy  (proba_occurency);
+CREATE INDEX ON benchmark_cassette_2013.riegl_pcpatch_proxy  (points_per_level);
+CREATE EXTENSION IF NOT EXISTS intarray ;
+CREATE INDEX  ON benchmark_cassette_2013.riegl_pcpatch_proxy USING GIST (points_per_level gist__int_ops); 
+CREATE INDEX  ON benchmark_cassette_2013.riegl_pcpatch_proxy USING GIST (class_ids gist__int_ops); 
+ 
+ALTER TABLE riegl_pcpatch_proxy ADD COLUMN geom geometry(polygon,932011)
+UPDATE riegl_pcpatch_proxy SET geom = patch::geometry
+FROM riegl_pcpatch_space AS rps WHERE rps.gid = riegl_pcpatch_proxy.gid
+SELECT *
+FROM benchmark_cassette_2013.riegl_pcpatch_proxy
+LIMIT 1 
+--classifying only on the cars vs all
+
+SELECT * , trunc(id /1000)*1000
+FROM benchmark_cassette_2013.benchmark_classification  
+LIMIT 1 
+ -- 0 undef
+ -- 1 other
+ -- 2 ground
+ -- 3 object
+ -- 4 building
+-- 5 vegetation
+
+*/
+
+
+DROP TABLE IF EXISTS predicted_result_with_ground_truth_paris ; 
+create table predicted_result_with_ground_truth_paris AS 
+	WITH patch_to_use AS (
+		SELECT gid,'bench' AS src  
+			 ,  trunc(class_ids[1]/1000)*1000  as sgt_class 
+			, class_weight[1] AS w
+			, points_per_level  
+			, patch_height,height_above_laser
+			,ST_Area(geom) AS patch_area --patch_area
+			,reflectance_avg,nb_of_echo_avg 
+			,random() as rand
+		 FROM benchmark_cassette_2013.riegl_pcpatch_proxy
+		WHERE points_per_level IS NOT NULL
+			AND dominant_simplified_class IS NOT NULL
+			--AND trunc(class_ids[1]/1000)*1000 != 303040000
+			  order by rand, gid
+			--LIMIT 2500
+		
+	)
+	 ,count_per_class as (
+		SELECT sgt_class, row_number() over(ORDER BY sgt_class ASC) AS n_class_id , count(*) AS  obs_per_class
+		FROM  patch_to_use  
+		GROUP BY sgt_class 
+	) 
+	 , array_agg AS (
+		SELECT array_agg(gid ORDER BY gid ASC) AS gids
+			,array_agg_custom( 
+				ARRAY[
+					COALESCE(points_per_level[2],0)
+					,COALESCE(points_per_level[3],0)
+					,COALESCE(points_per_level[4],0)
+					,COALESCE(points_per_level[5],0) 
+					,reflectance_avg
+					, nb_of_echo_avg
+					, height_above_laser
+					, patch_height 
+					,  patch_area
+					] 
+				ORDER BY gid ASC ) AS feature_arr 
+			, array_agg(    cc.n_class_id::int  ORDER BY gid ASC) as gt_class
+			, array_agg(round(1/(cc.obs_per_class*1.0),10) ORDER BY gid aSC) AS weight
+		FROM patch_to_use
+			LEFT OUTER JOIN count_per_class AS cc ON (cc.sgt_class =  patch_to_use.sgt_class)
+	)
+	 --,result_classif AS (
+		SELECT  r.gid, r.gt_class, r.prediction, r.confidence , prediction = r.gt_class as is_correct
+		FROM array_agg
+			,vosges_2011.rc_random_forest_train_predict(
+				gids
+				,feature_arr
+				,gt_class
+				, weight
+				, (SELECT array_agg(n_class_id::int ORDER BY n_class_id ) AS n_class_id FROM count_per_class)
+				,  (SELECT array_agg(en::text ORDER BY n_class_id ) AS sgt_class FROM count_per_class LEFT OUTER JOIN benchmark_classification AS bc ON (bc.id = sgt_class))
+				,  10
+				, 200
+				, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/paris'::text ) as r   ; 
+
+DROP TABLE IF EXISTS visu_classif_paris  ; 
+CREATE TABLE visu_classif_paris AS 
+SELECT p.*, lvp.geom
+FROM predicted_result_with_ground_truth_paris as p
+	NATURAL JOIN benchmark_cassette_2013.riegl_pcpatch_proxy as lvp ; 
+	CREATE INDEX ON visu_classif_paris USING GIST(geom) ;
+	CREATE INDEX ON visu_classif_paris (gid) ; 
+ 
