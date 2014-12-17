@@ -5,8 +5,8 @@
 ---------------------------------------
 --We try to do best that we can we all ready made simple descriptors
 --
-SET search_path to vosges_2011, public;
-
+SET search_path to vosges_2011, ocs, benchmark_cassette_2013 , public;
+ 
 --adding descriptor
 	-- height of the patch
 	-- height above the laser
@@ -220,12 +220,12 @@ for a in re:
 return to_be_returned ;
 $$ LANGUAGE plpythonu IMMUTABLE STRICT; 
  
- 
+ /*
 
 DROP TABLE IF EXISTS predicted_result_with_ground_truth_50k_3_classes_all_dim ; 
 create table predicted_result_with_ground_truth_50k_3_classes_all_dim AS 
 	WITH patch_to_use AS (
-			 SELECT gid , 	substring(gt_classes[1] from 1 for 1) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
+			 SELECT gid , 	substring(gt_classes[1] from 1 for 2) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
 				,points_per_level
 				,random() as rand
 			 FROM las_vosges_proxy     
@@ -286,7 +286,7 @@ FROM predicted_result_with_ground_truth_50k_3_classes_all_dim as p
 	CREATE INDEX ON visu_classif_vosges USING GIST(geom) ;
 	CREATE INDEX ON visu_classif_vosges (gid) ; 
 
-/*
+
 SELECT count(*)
 FROM benchmark_cassette_2013.riegl_pcpatch_space 
 WHERE pc_numpoints(patch)>100
@@ -368,5 +368,9 @@ WITH patch_to_use AS (
 		,rc_explodeN_numbered(patch, 2000) AS pt
 
 )
-TO '/media/sf_perso_PROJETS/lod/patch_with_classif_1000.csv' WITH CSV HEADER
-*/
+TO '/media/sf_perso_PROJETS/lod/patch_with_classif_1000.csv' WITH CSV HEADER ;
+
+
+*/ 
+--get all patches that have the car code, 
+
