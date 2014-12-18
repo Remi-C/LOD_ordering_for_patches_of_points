@@ -8,7 +8,7 @@
 	-- for wreong observation, the distance to closest border
 
 --create a border table :
-SET search_path to vosges_2011, ocs, public;
+SET search_path to vosges_2011, ocs,benchmark_cassette_2013, public;
 
 
 DROP TABLE IF EXISTS ocs.ocs_border ; 
@@ -23,6 +23,74 @@ SELECT *
 FROM ocs."Export_Foret67" 
 LIMIT 1 
 
+SELECT count(*)
+FROM las_vosges_proxy
+WHERE array_length(gt_classes,1)>1
+
+SELECT *
+FROM benchmark_cassette_2013.riegl_pcpatch_proxy
+LIMIT 1
+105041
+
+SELECT min(gid), max(gid)
+FROM las_vosges_proxy
+
+SELECT vcp.* , lvp.gid
+FROM visu_classif_paris AS vcp   
+LEFT OUTER JOIN bench  AS lvp ON vcp.gid = lvp.gid
+LIMIT 1
+
+WITH mapping_old_new_class AS (
+	SELECT  gt_class, trunc(lvp.class_ids[1]/1000)*1000 as sclass, class_weight, bc.en
+	FROM visu_classif_paris AS vcp   
+		LEFT OUTER  JOIN riegl_pcpatch_proxy AS lvp ON lvp.gid = vcp.gid
+		LEFT OUTER JOIN benchmark_classification AS bc oN (trunc(lvp.class_ids[1]/1000)*1000 =bc.id) 
+	
+),total_number_per_class AS (
+	SELECT gt_class, count(*) count_total
+	FROM benchmark_cassette_2013.visu_classif_paris AS vcp   
+	GROUP BY gt_class 	 
+)
+, mixed_number_per_class AS (
+	SELECT gt_class, count(*) count_mixed
+	FROM benchmark_cassette_2013.visu_classif_paris AS vcp   
+		LEFT OUTER  JOIN las_vosges_proxy AS lvp ON lvp.gid = vcp.gid
+	WHERE array_length(gt_classes,1)>1 
+	GROUP BY gt_class 
+	
+)
+,tot_error AS (
+	SELECT gt_class, count(*) count_total
+	FROM benchmark_cassette_2013.visu_classif_paris AS vcp   
+	WHERE is_correct = false
+	GROUP BY gt_class 
+)
+,mixed_error AS (
+	SELECT gt_class, count(*) count_mixed
+	FROM benchmark_cassette_2013.visu_classif_paris AS vcp   
+		LEFT OUTER  JOIN las_vosges_proxy AS lvp ON lvp.gid = vcp.gid
+	WHERE array_length(gt_classes,1)>1 
+		AND  is_correct = false
+	GROUP BY gt_class 
+)
+SELECT gt_class, count_total , count_mixed , count_mixed / (count_total*1.0) 
+FROM total_number_per_class AS ttpc
+	NATURAL  JOIN mixed_number_per_class 
+	
+
+
+SELECT *
+FROM benchmark_cassette_2013.statisticaly_strong_classes 
+SELECT  gt_class, count(*)  
+FROM benchmark_cassette_2013.visu_classif_paris AS vcp   
+	LEFT OUTER  JOIN las_vosges_proxy AS lvp ON lvp.gid = vcp.gid
+WHERE -- array_length(gt_classes,1)>1 AND
+ is_correct = false
+ GROUP BY gt_class
+visu_classif_vosges
+
+
+4800/25000
 SELECT count(*)/ (SELECT 1.0*count(*) FROM predicted_result_with_ground_truth_50k_3_classes_all_dim)
 FROM predicted_result_with_ground_truth_50k_3_classes_all_dim 
 WHERE is_correct =true
