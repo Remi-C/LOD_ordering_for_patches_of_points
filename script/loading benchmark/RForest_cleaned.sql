@@ -333,7 +333,7 @@ DROP TABLE IF EXISTS predicted_result_with_ground_truth_paris ;
 create table predicted_result_with_ground_truth_paris AS 
 	WITH patch_to_use AS (
 		SELECT gid,'bench' AS src  
-			 ,  trunc(class_ids[1]/10000)*10000  as sgt_class 
+			 ,  trunc(class_ids[1]/100)*100  as sgt_class 
 			, class_weight[1] AS w
 			, points_per_level  
 			, patch_height,height_above_laser
@@ -344,9 +344,9 @@ create table predicted_result_with_ground_truth_paris AS
 		WHERE points_per_level IS NOT NULL
 			AND dominant_simplified_class IS NOT NULL
 			--AND trunc(class_ids[1]/1000)*1000 != 303040000 
-			AND ST_DWithin( geom , ST_SetSRID(ST_MakePoint(1900,21198),932011), 20) = true
+			--AND ST_DWithin( geom , ST_SetSRID(ST_MakePoint(1900,21198),932011), 20) = true
 			  order by rand, gid
-			--LIMIT 500
+			--LIMIT 5000
 		
 	)
 	 ,count_per_class as (
@@ -411,3 +411,30 @@ SELECT
 		,rc_explodeN_numbered(patch, 2000) AS pt
 )
 TO '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/visu/reference_point_cloud/patch_with_classif_cars' WITH CSV HEADER
+
+
+
+COPY  (
+SELECT
+		 pc_get((pt).point,'x') AS x
+		, pc_get((pt).point,'y') AS y
+		, pc_get((pt).point,'z') AS z
+		, pc_get((pt).point,'reflectance') AS reflectance
+		, (pt).ordinality 
+		, PC_NumPoints(patch) AS num_points
+	FROM acquisition_tmob_012013.riegl_pcpatch_space 
+		,rc_explodeN_numbered(patch, -1) AS pt
+	WHERE ST_DWithin(patch::geometry, ST_MakePoint(1885,20938),7.5)= true
+)
+TO '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/visu/reference_point_cloud/vehicle_stop.csv' WITH CSV HEADER
+
+SELECT *
+FROM acquisition_tmob_012013.riegl_pcpatch_space
+
+
+SELECT points_per_level
+FROM acquisition_tmob_012013.riegl_pcpatch_space 
+WHERE pc_numpoints(patch)>4000
+
+SELECT *
+FROM benchmark_cassette_2013.benchmark_classification  
