@@ -13,7 +13,7 @@ import numpy as np ; #efficient arrays
 import pandas as pd;   # data frame to do sql like operation
 
 from sklearn.ensemble import RandomForestClassifier ; #base lib
-from sklearn import cross_validation,preprocessing ; #normalizing data, creating kfold validation
+from sklearn import cross_validation, preprocessing ; #normalizing data, creating kfold validation
 
 
 
@@ -23,8 +23,8 @@ def create_test_data(feature_number, data_size, class_list):
     import random ; #used to chose a class randomly
       
     #create test vector    
-    feature = np.random.random_sample((data_size,feature_number)) * 10; 
-    gid = np.arange(13,data_size+13); 
+    feature = np.random.random_sample((data_size,feature_number)) * 10 ; 
+    gid = np.arange(13,data_size+13) ; 
     
     #create ground truth class vector : a 1,N vector containing randomly one of the possible class
     ground_truth_class = np.zeros(data_size); 
@@ -36,9 +36,9 @@ def create_test_data(feature_number, data_size, class_list):
 def create_label_equivalency(labels_name, labels_number):
     """we create an equivalency list between class name and class number""" 
     import numpy as np; 
-    labels=  np.zeros(len(labels_name), dtype={'names':['class_id', 'class_name']\
+    labels =  np.zeros(len(labels_name), dtype={'names':['class_id', 'class_name']\
         , 'formats':['i4','a10']})  ;   
-    for i  in np.arange(0,len(labels_name)):
+    for i in np.arange(0,len(labels_name)):
         labels['class_id'][i] = labels_number[i]
         labels['class_name'][i] = labels_name[i]  
     return labels; 
@@ -171,6 +171,7 @@ def print_confusion_matrix(result, labels, classes_,plot_directory):
     plt.clf()
     plt.cla()
     plt.close() 
+    return cm; 
 
 def Rforest_learn_predict(gid, X, Y,weight, labels, k_folds, random_forest_trees ,plot_directory): 
     from sklearn.metrics import classification_report
@@ -192,14 +193,14 @@ def Rforest_learn_predict(gid, X, Y,weight, labels, k_folds, random_forest_trees
      
     #print the confusion matrix
     if len(plot_directory)!=0:
-        print_confusion_matrix(result, labels, clf.classes_,plot_directory) 
+        cm = print_confusion_matrix(result, labels, clf.classes_,plot_directory) 
     
     report = classification_report( result['ground_truth_class'],result['class_chosen'],target_names = labels)#,sample_weight=result['weight'])  ;
     
     return np.column_stack((result['gid']
         ,result['ground_truth_class'].astype(int)
         , result['class_chosen'].astype(int)
-        , result['proba_chosen']  )),report,feature_importances;
+        , result['proba_chosen']  )),report,feature_importances,cm;
     
 def Rforest_learn_predict_test():
         
