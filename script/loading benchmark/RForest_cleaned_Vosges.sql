@@ -203,11 +203,13 @@ import numpy as np
 
 
 #constructing input of the python function
-result,report,feature_importancy = Rforest_on_patch.RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels,class_list, k_folds,random_forest_ntree, plot_directory) ; 
+result,report,feature_importancy,confusion_matrix = Rforest_on_patch.RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels,class_list, k_folds,random_forest_ntree, plot_directory) ; 
 #plpy.notice(result)
  
 plpy.notice(np.around(np.mean(feature_importancy,axis =0),2))
 plpy.notice(report)
+plpy.notice(labels)
+plpy.notice(confusion_matrix)
 
 #returning: 
 #re = np.column_stack((result['gid'],result['ground_truth_class'].astype(int), result['class_chosen'].astype(int), result['proba_chosen']  )) ;
