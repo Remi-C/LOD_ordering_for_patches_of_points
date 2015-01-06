@@ -187,29 +187,33 @@ It returns the prediction
 """ 
 import sys
 #sys.path.insert(0, '/media/dca349df-2074-430b-b9b8-a4cc4684975b/test_pg_lidar/LOD')
-sys.path.insert(0, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script/loading benchmark')
+#sys.path.insert(0, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script/loading benchmark')
+sys.path.insert(0, '/media/sf_USB_storage_local/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script/loading benchmark')
 #plpy.notice(gids)
 #plpy.notice(feature_iar)
 #plpy.notice(gt_classes)
 #plpy.notice(labels)
 #plpy.notice(class_list)
 #plpy.notice(weight)
-import matplotlib 
-matplotlib.use('Agg')
+#import matplotlib 
+#matplotlib.use('Agg')
 import Rforest_on_patch;
 reload(Rforest_on_patch)
-import numpy as np
-
-
+#import rforest_on_patch_lean
+#reload(rforest_on_patch_lean)
+import numpy as np 
 
 #constructing input of the python function
-result,report,feature_importancy,confusion_matrix = Rforest_on_patch.RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels,class_list, k_folds,random_forest_ntree, plot_directory) ; 
+#result,report,feature_importancy,learning_time,predicting_time =  rforest_on_patch_lean.RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels,class_list, k_folds,random_forest_ntree, plot_directory) ; 
+result,report,feature_importancy,cm =  Rforest_on_patch.RForest_learn_predict_pg(gids,feature_iar,gt_classes,weight,labels,class_list, k_folds,random_forest_ntree, plot_directory) ; 
 #plpy.notice(result)
- 
+
+#plpy.notice('learning_time : '+str(learning_time));
+#plpy.notice('predicting_time : '+str(predicting_time));
 plpy.notice(np.around(np.mean(feature_importancy,axis =0),2))
 plpy.notice(report)
-plpy.notice(labels)
-plpy.notice(confusion_matrix)
+plpy.notice(labels) 
+plpy.notice(cm)
 
 #returning: 
 #re = np.column_stack((result['gid'],result['ground_truth_class'].astype(int), result['class_chosen'].astype(int), result['proba_chosen']  )) ;
@@ -227,20 +231,16 @@ $$ LANGUAGE plpythonu IMMUTABLE STRICT;
 DROP TABLE IF EXISTS predicted_result_with_ground_truth_50k_3_classes_all_dim ; 
 create table predicted_result_with_ground_truth_50k_3_classes_all_dim AS 
 	WITH patch_to_use AS (
-			 SELECT gid , 	substring(gt_classes[1] from 1 for 2) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
+			 SELECT lvp.gid , 	substring(gt_classes[1] from 1 for 1) as sgt_class, gt_weight[1], avg_intensity, avg_tot_return_number, avg_z, avg_height 
 				,points_per_level
 				,random() as rand
-			 FROM las_vosges_proxy     
-			 WHERE  --gt_weight[1] > 0.9 AND
-				 points_per_level IS NOT NULL
-				AND EXISTS (
-					SELECT 1 
-					FROM ocs.ground_truth_area_manual as gta
-					WHERE ST_Intersects(gta.geom, las_vosges_proxy.geom)=true
-				)
+			 FROM las_vosges_proxy AS lvp    , ocs.ground_truth_area_manual as gta
+			 WHERE ST_Intersects(gta.geom, lvp.geom)=true
+				--gt_weight[1] > 0.9 AND
+				 AND points_per_level IS NOT NULL 
 				--ORDER BY gid ASC
-				order by rand, gid
-			LIMIT 50000
+				order by rand -- , gid
+			LIMIT 300000
 	)
 	,count_per_class as (
 		SELECT sgt_class, row_number() over(ORDER BY sgt_class ASC) AS n_class_id , count(*) AS  obs_per_class
@@ -278,15 +278,15 @@ create table predicted_result_with_ground_truth_50k_3_classes_all_dim AS
 				,  (SELECT array_agg(sgt_class ORDER BY n_class_id ) AS sgt_class FROM count_per_class)
 				,  10
 				, 100
-				, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/vosges' ) as r   ; 
+				, '/media/sf_USB_storage_local/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/vosges_article' ) as r   ;
 
-DROP TABLE IF EXISTS visu_classif_vosges  ; 
+DROP TABLE IF EXISTS visu_classif_vosges  ;
 CREATE TABLE visu_classif_vosges AS 
 SELECT p.*, lvp.geom
 FROM predicted_result_with_ground_truth_50k_3_classes_all_dim as p
-	NATURAL JOIN las_vosges_proxy as lvp ; 
+	NATURAL JOIN las_vosges_proxy as lvp ;
 	CREATE INDEX ON visu_classif_vosges USING GIST(geom) ;
-	CREATE INDEX ON visu_classif_vosges (gid) ; 
+	CREATE INDEX ON visu_classif_vosges (gid) ;
 
 
 SELECT count(*)
@@ -376,3 +376,41 @@ TO '/media/sf_perso_PROJETS/lod/patch_with_classif_1000.csv' WITH CSV HEADER ;
 */ 
 --get all patches that have the car code, 
 
+
+SELECT sum(num_points)
+FROM vosges_2011.las_vosges_proxy  
+LIMIT 10
+
+SELECT count(*)
+FROM vosges_2011.las_vosges_proxy  
+WHERE array_length(gt_classes,1)>1
+
+	WITH dat AS (
+		SELECT substring(gt_classes[1] from 1 for 1) as sid , gt_weight[1] as w, *
+		FROM vosges_2011.las_vosges_proxy  
+		--LIMIT 100
+	)
+	--,avg_w AS (
+		SELECT sum(w*num_points)/ sum(num_points)
+		FROM dat
+		GROUP BY sid
+	)
+	--,measure AS (
+		SELECT sid , round(avg_w.avg::numeric,2) AS average_weight , avg_w.c AS nobs
+		FROM avg_w
+	)
+		SELECT sum(average_weight*nobs)/  sum(nobs)
+		FROM measure
+ 
+
+SELECT count(*)
+		FROM vosges_2011.las_vosges_proxy  as lvp, ocs.ground_truth_area_manual as gta
+        WHERE ST_Intersects(gta.geom, lvp.geom)=true
+			--gt_weight[1] > 0.9 AND
+			AND points_per_level IS NOT NULL 
+		WHERE gt_weight[1] >1 
+
+		UPDATE vosges_2011.las_vosges_proxy  SET gt_weight = ARRAY[1] WHERE gid = ANY(ARRAY[70112,327697])
+
+
+SELECT 0.07+ 0.13+0.18 +0.19
