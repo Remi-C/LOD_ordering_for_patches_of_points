@@ -1,0 +1,23 @@
+NOTICE:  [ 0.05  0.15  0.17  0.16  0.12  0.03  0.2   0.12]
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:               precision    recall  f1-score   support
+
+  (1, 'FF')       0.99      0.90      0.94     36496
+  (2, 'FO')       0.12      0.41      0.19       439
+  (3, 'FP')       0.00      0.00      0.00         3
+  (4, 'LA')       0.16      0.53      0.25       891
+  (5, 'No')       0.86      0.86      0.86     12171
+
+avg / total       0.93      0.88      0.90     50000
+
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  ['FF', 'FO', 'FP', 'LA', 'No']
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  [[ 0.90497589  0.02397523  0.          0.0316199   0.03942898]
+ [ 0.19362187  0.40546697  0.          0.29840547  0.10250569]
+ [ 0.33333333  0.          0.          0.          0.66666667]
+ [ 0.08978676  0.17059484  0.          0.53310887  0.20650954]
+ [ 0.02341632  0.01815792  0.          0.09793772  0.86048805]]
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+La requête a été exécutée avec succés : 50000 lignes modifiées. La requête a été exécutée en 3714844 ms.
+

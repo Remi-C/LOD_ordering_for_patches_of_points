@@ -1,0 +1,105 @@
+querry executed 2014-12-26 19:59:59.804173 
+data feteched 2014-12-26 20:00:04.466330 
+data reshaped 2014-12-26 20:00:06.984646 
+     workingg on kfold 1 , 2014-12-26 20:00:07.707389
+         starting learning at 
+				2014-12-26 20:00:08.480142
+         learning finished, starting prediction at 
+				2014-12-26 20:04:49.530179
+      prediction finished at 
+				2014-12-26 20:04:51.694328
+     workingg on kfold 2 , 2014-12-26 20:04:51.914972
+         starting learning at 
+				2014-12-26 20:04:52.656278
+         learning finished, starting prediction at 
+				2014-12-26 20:08:36.650100
+      prediction finished at 
+				2014-12-26 20:08:38.851244
+     workingg on kfold 3 , 2014-12-26 20:08:39.112750
+         starting learning at 
+				2014-12-26 20:08:39.893471
+         learning finished, starting prediction at 
+				2014-12-26 20:12:26.177465
+      prediction finished at 
+				2014-12-26 20:12:28.339879
+     workingg on kfold 4 , 2014-12-26 20:12:28.630398
+         starting learning at 
+				2014-12-26 20:12:29.350370
+         learning finished, starting prediction at 
+				2014-12-26 20:16:11.870733
+      prediction finished at 
+				2014-12-26 20:16:14.028593
+     workingg on kfold 5 , 2014-12-26 20:16:14.314036
+         starting learning at 
+				2014-12-26 20:16:15.010926
+         learning finished, starting prediction at 
+				2014-12-26 20:19:52.062351
+      prediction finished at 
+				2014-12-26 20:19:54.186741
+     workingg on kfold 6 , 2014-12-26 20:19:54.473535
+         starting learning at 
+				2014-12-26 20:19:55.156493
+         learning finished, starting prediction at 
+				2014-12-26 20:23:29.400188
+      prediction finished at 
+				2014-12-26 20:23:31.524143
+     workingg on kfold 7 , 2014-12-26 20:23:31.835202
+         starting learning at 
+				2014-12-26 20:23:32.540286
+         learning finished, starting prediction at 
+				2014-12-26 20:27:09.554346
+      prediction finished at 
+				2014-12-26 20:27:11.681474
+     workingg on kfold 8 , 2014-12-26 20:27:12.006396
+         starting learning at 
+				2014-12-26 20:27:12.878065
+         learning finished, starting prediction at 
+				2014-12-26 20:30:48.740513
+      prediction finished at 
+				2014-12-26 20:30:50.905267
+     workingg on kfold 9 , 2014-12-26 20:30:51.251693
+         starting learning at 
+				2014-12-26 20:30:51.980906
+         learning finished, starting prediction at 
+				2014-12-26 20:34:32.886885
+      prediction finished at 
+				2014-12-26 20:34:35.048556
+     workingg on kfold 10 , 2014-12-26 20:34:35.460440
+         starting learning at 
+				2014-12-26 20:34:36.199535
+         learning finished, starting prediction at 
+				2014-12-26 20:38:15.560618
+      prediction finished at 
+				2014-12-26 20:38:17.772022
+rforest finished 2014-12-26 20:38:20.692645 
+             precision    recall  f1-score   support
+
+(1, 'Forest')       0.99      0.91      0.95    389583
+(2, 'Land')       0.18      0.68      0.28      8699
+(3, 'Notforest')       0.86      0.89      0.87    127993
+
+avg / total       0.94      0.90      0.92    526275
+
+ feature_importancy [ 0.07  0.13  0.18  0.19  0.09  0.06  0.12  0.14]
+ learning_time : -2121.717296
+ predicting_time: 20.0 
+labels : ['Forest', 'Land', 'Notforest']
+end of function 2014-12-26 20:38:20.711097 
+
+precision
+0.99
+0.18
+0.86
+0.94
+
+recall
+0.91
+0.68
+0.89
+0.90
+
+support 
+389583
+8699
+127993
+526275

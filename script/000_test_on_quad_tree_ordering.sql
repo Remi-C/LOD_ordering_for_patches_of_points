@@ -238,7 +238,7 @@ END
 
 --exploding the patches with LOD into points to a new table
 
-		DROP TABLE IF EXISTS temp_points_in_patch_ordered_numbered;
+	DROP TABLE IF EXISTS temp_points_in_patch_ordered_numbered;
 	CREATE TABLE temp_points_in_patch_ordered_numbered AS 
 	SELECT  row_number() over() as qgis_id , points_per_level, qgis_id AS ord, gid, point
 	FROM (
@@ -249,7 +249,7 @@ END
 		AND points_per_level IS NOT NULL
 		--LIMIT 100 
 		) as foo
-		--LIMIT 300000;
+		LIMIT 3000000;
 		CREATE INDEX ON temp_points_in_patch_ordered_numbered USING GIST(point);
 		VACUUM ANALYZE temp_points_in_patch_ordered_numbered;
 
@@ -320,5 +320,30 @@ WITH csv header;
 
 
 
+--------- testing the octree ordering
 
-	
+	UPDATE acquisition_tmob_012013.riegl_pcpatch_space SET (patch, points_per_level)  
+		= (  result.o_patch, result.result_per_level)
+		FROM public.rc_OrderPatchByOcTree( patch , 7) AS result
+		WHERE gid = 378957
+
+	DROP TABLE IF EXISTS temp_points_in_patch_ordered_numbered;
+	CREATE TABLE temp_points_in_patch_ordered_numbered AS 
+	SELECT  row_number() over() as qgis_id , points_per_level, qgis_id AS ord, gid, point
+	FROM (
+		SELECT (pointt).num as qgis_id,gid, points_per_level, (pointt).point::geometry
+		FROM acquisition_tmob_012013.riegl_pcpatch_space ,  rc_ExplodeN_numbered( patch, (SELECT sum(t) FROM unnest(points_per_level[1:5]) AS t)) as pointt
+		WHERE gid = 378957--LIMIT 100 
+		) as foo;
+		
+		CREATE INDEX ON temp_points_in_patch_ordered_numbered USING GIST(point);
+		VACUUM ANALYZE temp_points_in_patch_ordered_numbered;
+
+--exporting data for external visualisation
+
+COPY 
+	( SELECT ST_X(point) AS X, ST_Y(point) AS Y,ST_Z(point) AS Z,ord, gid
+	FROM temp_points_in_patch_ordered_numbered
+	)
+TO '/media/sf_PROJETS/tmp_pointcloud_lod.csv'-- '/tmp/temp_pointcloud_lod.csv'
+WITH csv header;

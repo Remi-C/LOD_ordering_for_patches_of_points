@@ -1,0 +1,30 @@
+NOTICE:  learning_time : 87.65
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  predicting_time : 0.59
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  [ 0.02  0.04  0.05  0.05  0.2   0.1   0.3   0.11  0.12]
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:               precision    recall  f1-score   support
+
+(1, 'unclassifi')       0.13      0.13      0.13       104
+(2, 'other grou')       0.21      0.58      0.31        73
+(3, 'road')       0.91      0.82      0.86      1278
+(4, 'sidewalk')       0.74      0.71      0.72       815
+(5, 'curb')       0.24      0.62      0.34        37
+(6, 'building')       0.89      0.74      0.81      1836
+(7, 'other obje')       0.31      0.82      0.46       102
+(8, 'punctual o')       0.64      0.76      0.69       133
+(9, 'linear')       0.15      0.59      0.24        41
+(10, 'pedestrian')       0.23      0.76      0.35        37
+(11, '2 wheelers')       0.30      0.65      0.41        79
+(12, '4+ wheeler')       0.69      0.45      0.54       462
+(13, 'tree')       0.93      0.92      0.92      2803
+(14, 'potted pla')       0.33      0.80      0.47        10
+
+avg / total       0.84      0.78      0.80      7810
+
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  ['unclassified', 'other ground', 'road', 'sidewalk', 'curb', 'building', 'other object', 'punctual object', 'linear', 'pedestrian', '2 wheelers', '4+ wheelers', 'tree', 'potted plant']
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+La requête a été exécutée avec succés : 7810 lignes modifiées. La requête a été exécutée en 95703 ms.
+
