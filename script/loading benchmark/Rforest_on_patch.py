@@ -126,7 +126,7 @@ def plot_result_per_class(g2,name,classes_,labels,plot_directory):
         # +'_against_all_'
         + str(classname) 
         + "_%i_%i_%i"%(now.day,now.hour, now.minute)
-        +'.png') ; 
+        +'.svg') ; 
     
     plt.clf()
     plt.cla()
@@ -166,7 +166,7 @@ def print_confusion_matrix(result, labels, classes_,plot_directory):
         plot_directory
         + '/test_output_all_feature_confusion_matrix_'
         + "%i_%i_%i"%(now.day,now.hour, now.minute)
-        +'.png'
+        +'.svg'
         )
     plt.clf()
     plt.cla()
