@@ -87,7 +87,8 @@ def order_by_octree():
     
     #centering/scaling/quantizing the data
     pointcloud_int = center_scale_quantize(pointcloud,tot_level );  
-     
+    
+    #print points_to_keep
     #initializing variablesoctree_ordering
     center_point,result,piv = preparing_tree_walking(tot_level) ;   
      
@@ -117,8 +118,9 @@ def order_by_octree_pg(iar,tot_level,stop_level,data_dim):
     #initializing variables
     center_point,the_result,piv = preparing_tree_walking(tot_level) ;   
     #iterating trough octree : 
-    recursive_octree_ordering(pointcloud_int,index,center_point, 0,tot_level,stop_level, the_result,piv) ;
-    
+    #recursive_octree_ordering(pointcloud_int,index,center_point, 0,tot_level,stop_level, the_result,piv) ;
+    points_to_keep = np.arange(pointcloud.shape[0],dtype=int);
+    recursive_octree_ordering_ptk(points_to_keep, pointcloud_int,index,center_point, 0,tot_level,stop_level, the_result,piv) ;
      
     #plot_points_3D(pointcloud, pointcloud_int,the_result, piv) ; 
     the_result= np.array(the_result);
@@ -166,8 +168,7 @@ def center_scale_quantize(pointcloud,tot_level ):
     pointcloud_int =  np.trunc(abs((pointcloud_int* pow(2,tot_level) )))\
          .astype(np.dtype('uint'+str(int(smallest_int_size_possible))));
     #we have to take care of overflow : if we reach the max value of 1<<tot_level, we go one down
-    pointcloud_int[pointcloud_int==pow(2,tot_level)]=(pow(2,tot_level)-1); 
-    
+    pointcloud_int[pointcloud_int==pow(2,tot_level)]=(pow(2,tot_level)-1);     
     return pointcloud_int
 
  
@@ -211,7 +212,6 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
     sub_part_level = level+1 ;
     #print for debug
     #recursive_octree_ordering_print(point_array,index_array, center_point, level,tot_level, result,piv);
-    
     
     if ( (len(point_array) == 0) | level >=min(tot_level,stop_level)):
         return;
@@ -293,6 +293,97 @@ def recursive_octree_ordering(point_array,index_array, center_point, level,tot_l
                         , piv); 
                         #continue;  
     return point_array,index_array ,result,piv
+    
+
+     
+def recursive_octree_ordering_ptk(points_to_keep, point_array,index_array, center_point, level,tot_level,stop_level, result,piv):
+    #print 'points_to_keep : ',points_to_keep ; 
+    #print 'points_to_keep length : ',len(points_to_keep) ; 
+    
+    #print 'toto :' ,point_array[points_to_keep]
+    #updatig level;
+    sub_part_level = level+1 ;
+    #print for debug
+    #recursive_octree_ordering_print(point_array,index_array, center_point, level,tot_level, result,piv);
+    
+    if ( (len(points_to_keep) == 0) | level >=min(tot_level,stop_level)):
+        return;
+    
+    #print 'level ',level,' , points remaining : ',len(point_array) ;
+    #print center_point; 
+    piv.append(center_point.tolist()); #casting the point to a simple array, to simplify piv
+ 
+    
+    #find the close    st point to pivot 
+    min_point = np.argmin(np.sum(pow(point_array[points_to_keep] - center_point ,2),axis=1))
+    result.append(list((index_array[points_to_keep][min_point],level))) ;  
+    #print 'all the point ', point_array
+    #print 'min_point ',min_point,'its index ', index_array[min_point],'the point ',  point_array[min_point] ; 
+    
+    #print 'n points before delete : ',len(point_array) ;     
+    #removing the found point from the array of points    
+    points_to_keep = np.delete(points_to_keep,min_point,axis=0);
+    
+    #print 'n points after delete : ',len(point_array) ; 
+    #print 'all the point after delete ', point_array
+    #sprint '\n\n';
+    #stopping if it remains no pioint : we won't divide further, same if we have reached max depth
+    if (len(points_to_keep) ==0 )|(level >= min(tot_level,stop_level)):
+        return;
+
+    bit_value_for_next_lev =  testBit(point_array[points_to_keep],tot_level - level -1) ; 
+    
+   
+    #compute the 8 sub parts
+    for b_x in list((0,1))  :
+        for b_y in list((0,1)) :
+            for b_z in list((0,1)):
+                #looping on all 8 sub parts
+                #print (b_x*2-1), (b_y*2-1) ;
+                half_voxel_size = (pow(2,tot_level - level -2  )) ; 
+                udpate_to_pivot = np.asarray([ (b_x*2-1)* half_voxel_size
+                    ,(b_y*2-1)*half_voxel_size
+                    ,(b_z*2-1)*half_voxel_size
+                ]); 
+                sub_part_center_point = center_point +udpate_to_pivot; 
+                
+                 
+                
+                # we want to iterateon 
+                # we need to update : : point_array , index_array    center_point  , level
+                #update point_array and index_array : we need to find the points that are in the subparts
+                #update center point, we need to add/substract to previous pivot 2^level+11
+                
+                #find the points concerned :
+                point_in_subpart_mask = np.all( \
+                    bit_value_for_next_lev == np.array([b_x,b_y,b_z]), axis=1);  
+             
+                if(len(points_to_keep[point_in_subpart_mask])==0): #no more point, don't go depper
+                    #print '\t we dont go further';
+                    continue; 
+                else:#maybe many points, need to go deeper
+                    recursive_octree_ordering_ptk(
+                          points_to_keep[point_in_subpart_mask]    
+                        , point_array
+                        , index_array
+                        , sub_part_center_point
+                        , sub_part_level
+                        , tot_level
+                        , stop_level
+                        , result
+                        , piv); 
+                        #continue;  
+    return points_to_keep,result,piv
+
+
+#correct_result = np.array(
+#[[39,0],[89,1],[25,2],[79,2],[83,2],[16,2],[26,1],[76,2],[99,2],[42,2],[61,2],[18,1],[35,2],[13,2], [12,2],[92,2],[84,1],[85,2],[77,2],[ 2,2],[ 6,2]])
+
+
+#result = test_order_by_octree_pg();
+#print 'result : ',result
+#print correct_result == result
+
 
 #
 #import cProfile 
