@@ -4,7 +4,7 @@
 --Thales TTS / IGN Matis-Cogit
 ---------------------------------------
 --We try to do best that we can we all ready made simple descriptors
---
+
 SET search_path to benchmark_cassette_2013, vosges_2011, public;
 
 --adding descriptor
@@ -329,29 +329,36 @@ LIMIT 1
 
 */
  
-DROP TABLE IF EXISTS predicted_result_with_ground_truth_paris ; 
-create table predicted_result_with_ground_truth_paris AS 
+SELECT dominant_simplified_class , count(*)
+FROM benchmark_cassette_2013.riegl_pcpatch_proxy
+GROUP BY dominant_simplified_class
+
+
+DROP TABLE IF EXISTS predicted_result_with_ground_truth_paris_all_feature_c_100 ; 
+CREATE TABLE predicted_result_with_ground_truth_paris_all_feature_c_100 AS 
 	WITH patch_to_use AS (
 		SELECT gid,'bench' AS src  
-			 ,  trunc(class_ids[1]/100)*100  as sgt_class 
+			 ,  trunc(class_ids[1]/1000)*1000 as sgt_class 
 			, class_weight[1] AS w
 			, points_per_level  
 			, patch_height,height_above_laser
 			,ST_Area(geom) AS patch_area --patch_area
 			,reflectance_avg,nb_of_echo_avg 
+			,dominant_simplified_class
 			,random() as rand
 		 FROM benchmark_cassette_2013.riegl_pcpatch_proxy
 		WHERE points_per_level IS NOT NULL
 			AND dominant_simplified_class IS NOT NULL
+			
 			--AND trunc(class_ids[1]/1000)*1000 != 303040000 
 			--AND ST_DWithin( geom , ST_SetSRID(ST_MakePoint(1900,21198),932011), 20) = true
-			  order by rand, gid
-			--LIMIT 5000
+			  order by rand --, gid  
 		
 	)
 	 ,count_per_class as (
 		SELECT sgt_class, row_number() over(ORDER BY sgt_class ASC) AS n_class_id , count(*) AS  obs_per_class
 		FROM  patch_to_use  
+		WHERE   ( (dominant_simplified_class=4 and rand <0.1 ) OR dominant_simplified_class!=4  ) 
 		GROUP BY sgt_class 
 	) 
 	 , array_agg AS (
@@ -373,6 +380,7 @@ create table predicted_result_with_ground_truth_paris AS
 			, array_agg(round(1/(cc.obs_per_class*1.0),10) ORDER BY gid aSC) AS weight
 		FROM patch_to_use
 			LEFT OUTER JOIN count_per_class AS cc ON (cc.sgt_class =  patch_to_use.sgt_class)
+		WHERE ( (dominant_simplified_class=4 and rand <0.1 ) OR dominant_simplified_class!=4  ) 
 	)
 	 --,result_classif AS (
 		SELECT  r.gid, r.gt_class, r.prediction, r.confidence , prediction = r.gt_class as is_correct
@@ -386,7 +394,7 @@ create table predicted_result_with_ground_truth_paris AS
 				,  (SELECT array_agg(en::text ORDER BY n_class_id ) AS sgt_class FROM count_per_class LEFT OUTER JOIN benchmark_classification AS bc ON (bc.id = sgt_class))
 				,  10
 				, 200
-				, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/paris'::text ) as r   ; 
+				, '/media/sf_USB_storage_local/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/result_rforest/paris'::text ) as r   ; 
 
 DROP TABLE IF EXISTS visu_classif_paris  ; 
 CREATE TABLE visu_classif_paris AS 
@@ -438,3 +446,38 @@ WHERE pc_numpoints(patch)>4000
 
 SELECT *
 FROM benchmark_cassette_2013.benchmark_classification  
+
+SELECT *
+FROM benchmark_cassette_2013.riegl_pcpatch_proxy
+LIMIT 1
+	WITH dat AS (
+		SELECT trunc(class_ids[1]/100)*100 as sid , class_weight[1] as w, *
+		FROM benchmark_cassette_2013.riegl_pcpatch_proxy
+		--LIMIT 100
+	)
+	--,avg_w AS (
+		SELECT bc.en, sid,  sum(w*num_points)/ sum(num_points)
+		FROM dat
+			LEFT OUTER JOIN benchmark_classification AS bc on (bc.id = dat.sid)
+		GROUP BY sid,en
+		ORDER BY sid ASC
+
+ with dat as (
+		SELECT en, trunc(class_ids[1]/100)*100 as sid , class_weight[1] as w, num_points
+		FROM benchmark_cassette_2013.riegl_pcpatch_proxy
+			LEFT OUTER JOIN benchmark_classification AS bc on (trunc(class_ids[1]/100)*100 = bc.id)
+		--WHERE en = 'road'
+)
+select   sum(w*num_points)/1000, sum(num_points)/1000 ,  round((sum(w*num_points)/sum(num_points))::numeric,3)as c
+from dat
+GROUP BY sid, en 
+ORDER BY sid ASC
+
+
+SELECT 0.92*0.06
+
+
+UPDATE benchmark_cassette_2013.riegl_pcpatch_proxy AS rpp SET num_points = PC_NumPoints(patch)
+FROM benchmark_cassette_2013.riegl_pcpatch_space AS rps
+WHERE rpp.gid = rps.gid 
+ 
