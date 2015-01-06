@@ -9,6 +9,7 @@ Created on Tue Jan  6 09:50:48 2015
 import numpy as np ;
 import networkx as nx;
 from matplotlib import cm as cmap
+import matplotlib.pyplot as plt
 
 labels =  ['unclassified', 'ground', 'building', 'other object', 'static', 'Dynamic', 'natural']; #noms humain des classes
 cm = np.array(
@@ -95,5 +96,5 @@ dict_l_p = dict(labels_pos)
 nx.draw_spectral(G,node_color=[ cluster_number[dict_l_p[i[0]]] for i in G.nodes(data=True) ],edge_color = [ i[2]['weight'] for i in G.edges(data=True) ], edge_cmap=cmap.get_cmap('jet') 
 , width=edgewidth  ,font_size=10,font_weight='bold',font_family='' ) 
 
- 
+plt.show();
 ############
