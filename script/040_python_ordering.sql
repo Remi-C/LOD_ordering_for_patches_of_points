@@ -21,10 +21,11 @@ AS $$
 """  Take a point cloud , and return the MidOc ordering for at least some of the points
 """ 
 import sys
-sys.path.insert(0, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script')
+#sys.path.insert(0, '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script')
+sys.path.insert(0, '/media/sf_USB_storage_local/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script')
 
 import octree_ordering ;
-#reload(octree_ordering) ;
+reload(octree_ordering) ;
 
 #plpy.notice(type(iar));
 tmp_result = octree_ordering.order_by_octree_pg(iar, tot_level,stop_level,data_dim);
@@ -129,7 +130,7 @@ q := format('
 		--raise notice '%',q; 
 		 RETURN   ;
 	END;
-$$ LANGUAGE plpgsql IMMUTABLE CALLED ON NULL INPUT ;
+$$ LANGUAGE plpgsql VOLATILE CALLED ON NULL INPUT ;
   
 COPY ( 
 	--WITH patch AS ( 
@@ -156,18 +157,67 @@ COPY (
 )
 TO '/media/sf_E_RemiCura/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/visu/octree_python_benchmark.csv' WITH CSV HEADER; 
 
+COPY (
+SELECT *
+FROM acquisition_tmob_012013.riegl_pcpatch_space  
+WHERE  pc_numpoints(patch) BETWEEN 100 AND 150
+LIMIT 1 
+) TO '/media/sf_USB_storage_local/PROJETS/point_cloud/PC_in_DB/LOD_ordering_for_patches_of_points/script/150_points_patch.csv'
 
 	WITH patch AS ( 
-		SELECT * , 3 As rounding_digits, pc_numpoints(patch)
-		FROM benchmark_cassette_2013.riegl_pcpatch_space 
-		WHERE pc_numpoints(patch) BETWEEN 0 AND 255
-		AND patch_area > 0.9
-		AND gid  = 4440 
+		SELECT * , 3 As rounding_digits, pc_numpoints(patch) as npoints
+		FROM acquisition_tmob_012013.riegl_pcpatch_space 
+		WHERE pc_numpoints(patch) BETWEEN 100000  AND 120000
+		--AND patch_area > 0.9
+		--AND gid  = 4440 
 		LIMIT 1  
 	)
-	SELECT r.*
+	SELECT r.* , npoints
 	FROM patch,rc_py_MidOc_ordering_patch(patch,6,6,3,3) as r  ;
+
+	
+SELECT pg_stat_reset();
+
+SELECT funcname,calls, total_time/1000.0 AS total_time, self_time/1000.0 AS self_time, sum(self_time/1000.0) OVER (order by self_time DESC) As cum_self_time
+FROM pg_stat_user_functions
+ORDER BY  -- total_time DESC  ,
+	self_time DESC; 
+
+--1K : 300ms
+--10k : 1.10 sec
+--100k : 
+	
 
 	SELECT CASE WHEN s BETWEEN 1 AND NULL THEN 0 ELSE 1 END 
 	FROM generate_series(1,100) AS s 
- 
+
+
+	WITH patchs AS (
+		SELECT *
+		FROM acquisition_tmob_012013.riegl_pcpatch_space  
+		WHERE  pc_numpoints(patch) BETWEEN 100 AND 150
+		LIMIT 1  
+	)
+	,points AS (
+		SELECT 
+			(pt).ordinality
+			, pt.point as opoint
+		FROM  patchs, rc_explodeN_numbered( patch,-1) as pt   
+		) 
+	, points_LOD as (
+		SELECT unnest(array[1,3,5,7,9]) as ordering , unnest(array[2,4,3,2,2]) as level
+	)
+	, pt_p_l AS (
+		SELECT array_agg(n_per_lev::int oRDER BY level ASC ) as points_per_level
+		FROM 
+			(SELECT  level, count(*) as n_per_lev
+			FROM points_LOD
+			GROUP BY level ) as sub
+	)
+	SELECT   pa.patch  , pt_p_l.points_per_level 
+	FROM  pt_p_l, 
+		(  
+		SELECT  pc_patch(points.opoint order by level ASC NULLS LAST, random())  as patch
+		FROM points
+			LEFT OUTER JOIN points_LOD  AS plod on (points.ordinality = plod.ordering) 
+		) as pa ;
