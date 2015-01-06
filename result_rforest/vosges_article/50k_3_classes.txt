@@ -1,0 +1,19 @@
+NOTICE:  learning_time : 120.71
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  predicting_time : 0.87
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  [ 0.07  0.13  0.19  0.2   0.09  0.04  0.11  0.15]
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:               precision    recall  f1-score   support
+
+   (1, 'F')       0.99      0.91      0.95     37190
+   (2, 'L')       0.17      0.64      0.27       826
+   (3, 'N')       0.85      0.89      0.87     11984
+
+avg / total       0.94      0.90      0.92     50000
+
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  ['F', 'L', 'N']
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+La requête a été exécutée avec succés : 50000 lignes modifiées. La requête a été exécutée en 4049573 ms.
+

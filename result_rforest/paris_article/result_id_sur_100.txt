@@ -1,0 +1,44 @@
+ 
+ result for paris
+ undersampling plus weighing
+ id/100
+ 
+ 
+ NOTICE:  learning_time : 107.09
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  predicting_time : 0.67
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  [ 0.03  0.05  0.05  0.04  0.21  0.11  0.29  0.1   0.12]
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:               precision    recall  f1-score   support
+
+(1, 'unclassifi')       0.13      0.12      0.13       104
+(2, 'other grou')       0.21      0.64      0.32        73
+(3, 'road')       0.92      0.82      0.86      1278
+(4, 'sidewalk')       0.75      0.71      0.73       815
+(5, 'curb')       0.23      0.59      0.33        37
+(6, 'building')       0.90      0.75      0.81      1771
+(7, 'other obje')       0.34      0.78      0.48       102
+(8, 'post')       0.71      0.95      0.81        91
+(9, 'floor lamp')       0.19      0.70      0.30        20
+(10, 'traffic si')       0.07      0.22      0.11         9
+(11, 'mailbox')       0.00      0.00      0.00         2
+(12, 'trash can')       0.10      0.36      0.15        11
+(13, 'grid')       0.17      0.59      0.26        41
+(14, 'pedestrian')       0.00      0.00      0.00         3
+(15, 'other pede')       0.23      0.52      0.32        21
+(16, 'still pede')       0.04      0.11      0.06         9
+(17, 'holding pe')       0.00      0.00      0.00         4
+(18, 'bicycle')       0.11      0.33      0.17         3
+(19, 'scooter')       0.28      0.58      0.38        76
+(20, 'other 4+ w')       0.73      0.43      0.54       462
+(21, 'tree')       0.93      0.92      0.93      2803
+(22, 'potted pla')       0.32      0.90      0.47        10
+
+avg / total       0.84      0.78      0.80      7745
+
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+NOTICE:  ['unclassified', 'other ground', 'road', 'sidewalk', 'curb', 'building', 'other object', 'post', 'floor lamp', 'traffic sign', 'mailbox', 'trash can', 'grid', 'pedestrian', 'other pedestrian', 'still pedestrian', 'holding pedestrian', 'bicycle', 'scooter', 'other 4+ wheels', 'tree', 'potted plant']
+CONTEXT:  PL/Python function "rc_random_forest_train_predict"
+La requête a été exécutée avec succés : 7745 lignes modifiées. La requête a été exécutée en 231090 ms.
+
